@@ -372,6 +372,7 @@ class MeadowActivity implements Activity {
       return Math.hypot(candidate.renderX - x, candidate.renderY - y) <= radius;
     });
     if (shape) {
+      shape.isHovered = true;
       shape.rippleStartedAt = this.reducedMotion.matches
         ? undefined
         : event.timeStamp;
@@ -381,7 +382,11 @@ class MeadowActivity implements Activity {
     }
   };
 
-  private readonly onPointerEnd = (): void => {
+  private readonly onPointerEnd = (event: PointerEvent): void => {
+    if (event.type !== 'pointercancel' && event.pointerType !== 'touch') {
+      return;
+    }
+
     this.pointerInside = false;
     this.pointerSpeed = 0;
     this.previousPointerTime = 0;
