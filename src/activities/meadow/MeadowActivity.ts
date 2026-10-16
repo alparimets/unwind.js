@@ -1,4 +1,4 @@
-import type { Activity, ActivityContext } from '../../core/activity';
+import type { Activity, ActivityAudio, ActivityContext } from '../../core/activity';
 
 interface FloatingShape {
   x: number;
@@ -7,6 +7,10 @@ interface FloatingShape {
   phase: number;
   drift: number;
   hue: number;
+  noteIndex: number;
+  renderX: number;
+  renderY: number;
+  isHovered: boolean;
 }
 
 function randomUnit(): number {
@@ -28,7 +32,11 @@ class MeadowActivity implements Activity {
   private pointerY = -1000;
   private pointerInside = false;
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private readonly audio: ActivityAudio,
+    private readonly onAudioError: (error: unknown) => void,
+  ) {
     const context = canvas.getContext('2d');
     if (!context) {
       throw new Error('This browser could not create a canvas rendering context.');
@@ -41,6 +49,7 @@ class MeadowActivity implements Activity {
     this.createShapes();
     window.addEventListener('resize', this.resize);
     this.canvas.addEventListener('pointermove', this.onPointerMove);
+    this.canvas.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('pointerleave', this.onPointerLeave);
     this.frameId = requestAnimationFrame(this.draw);
   }
@@ -49,6 +58,7 @@ class MeadowActivity implements Activity {
     cancelAnimationFrame(this.frameId);
     window.removeEventListener('resize', this.resize);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
+    this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
   }
 
@@ -76,6 +86,10 @@ class MeadowActivity implements Activity {
         phase: randomUnit() * Math.PI * 2,
         drift: 0.16 + randomUnit() * 0.4,
         hue: 80 + randomUnit() * 70,
+        noteIndex: Math.floor(randomUnit() * 5),
+        renderX: 0,
+        renderY: 0,
+        isHovered: false,
       });
     }
   }
@@ -85,6 +99,23 @@ class MeadowActivity implements Activity {
     this.pointerX = event.clientX - bounds.left;
     this.pointerY = event.clientY - bounds.top;
     this.pointerInside = true;
+    void this.audio.resumeFromGesture().catch(this.onAudioError);
+  };
+
+  private readonly onPointerDown = (event: PointerEvent): void => {
+    const bounds = this.canvas.getBoundingClientRect();
+    const x = event.clientX - bounds.left;
+    const y = event.clientY - bounds.top;
+    const shape = this.shapes.find(
+      (candidate) =>
+        Math.hypot(candidate.renderX - x, candidate.renderY - y) <=
+        candidate.radius,
+    );
+    if (shape) {
+      void this.audio
+        .playParticleTone(shape.noteIndex)
+        .catch(this.onAudioError);
+    }
   };
 
   private readonly onPointerLeave = (): void => {
@@ -113,6 +144,18 @@ class MeadowActivity implements Activity {
         }
       }
 
+      shape.renderX = x;
+      shape.renderY = y;
+      const isHovered =
+        this.pointerInside &&
+        Math.hypot(x - this.pointerX, y - this.pointerY) <= shape.radius;
+      if (isHovered && !shape.isHovered) {
+        void this.audio
+          .playParticleTone(shape.noteIndex)
+          .catch(this.onAudioError);
+      }
+      shape.isHovered = isHovered;
+
       const gradient = context.createRadialGradient(
         x - shape.radius * 0.25,
         y - shape.radius * 0.3,
@@ -133,6 +176,10 @@ class MeadowActivity implements Activity {
   };
 }
 
-export function createActivity({ canvas }: ActivityContext): Activity {
-  return new MeadowActivity(canvas);
+export function createActivity({
+  canvas,
+  audio,
+  onAudioError,
+}: ActivityContext): Activity {
+  return new MeadowActivity(canvas, audio, onAudioError);
 }

@@ -89,6 +89,16 @@ document.addEventListener('keydown', (event: KeyboardEvent) => {
 });
 
 const activityId: ActivityId = 'meadow';
-const activity = await loadActivity(activityId, { canvas });
+const activity = await loadActivity(activityId, {
+  canvas,
+  audio: ambientAudio,
+  onAudioError: (error) => {
+    setStatus(
+      error instanceof Error
+        ? error.message
+        : 'Particle sound could not be played.',
+    );
+  },
+});
 activity.start();
 window.addEventListener('pagehide', () => activity.dispose(), { once: true });
