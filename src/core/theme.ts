@@ -9,5 +9,5 @@ export const THEME_PRESETS = [
 export type ThemePreset = (typeof THEME_PRESETS)[number];
 
 export function isThemePreset(value: unknown): value is ThemePreset {
-  return THEME_PRESETS.some((preset) => preset === value);
+  return (THEME_PRESETS as readonly unknown[]).includes(value);
 }
