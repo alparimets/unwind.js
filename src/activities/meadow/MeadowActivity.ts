@@ -10,8 +10,14 @@ interface FloatingShape {
   noteIndex: number;
   renderX: number;
   renderY: number;
+  offsetX: number;
+  offsetY: number;
+  velocityX: number;
+  velocityY: number;
   isHovered: boolean;
 }
+
+const MAX_POINTER_SPEED = 1.5;
 
 function randomUnit(): number {
   const value = new Uint32Array(1);
@@ -30,7 +36,12 @@ class MeadowActivity implements Activity {
   private height = 0;
   private pointerX = -1000;
   private pointerY = -1000;
+  private previousPointerX = -1000;
+  private previousPointerY = -1000;
   private pointerInside = false;
+  private pointerSpeed = 0;
+  private previousPointerTime = 0;
+  private previousFrameTime = 0;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -89,6 +100,10 @@ class MeadowActivity implements Activity {
         noteIndex: Math.floor(randomUnit() * 5),
         renderX: 0,
         renderY: 0,
+        offsetX: 0,
+        offsetY: 0,
+        velocityX: 0,
+        velocityY: 0,
         isHovered: false,
       });
     }
@@ -99,6 +114,17 @@ class MeadowActivity implements Activity {
     this.pointerX = event.clientX - bounds.left;
     this.pointerY = event.clientY - bounds.top;
     this.pointerInside = true;
+    if (this.previousPointerTime > 0) {
+      const elapsed = Math.max(event.timeStamp - this.previousPointerTime, 1);
+      const distance = Math.hypot(
+        this.pointerX - this.previousPointerX,
+        this.pointerY - this.previousPointerY,
+      );
+      this.pointerSpeed = Math.min(distance / elapsed / MAX_POINTER_SPEED, 1);
+    }
+    this.previousPointerX = this.pointerX;
+    this.previousPointerY = this.pointerY;
+    this.previousPointerTime = event.timeStamp;
     void this.audio.resumeFromGesture().catch(this.onAudioError);
   };
 
@@ -113,37 +139,64 @@ class MeadowActivity implements Activity {
     );
     if (shape) {
       void this.audio
-        .playParticleTone(shape.noteIndex)
+        .playParticleTone(shape.noteIndex, this.pointerSpeed)
         .catch(this.onAudioError);
     }
   };
 
   private readonly onPointerLeave = (): void => {
     this.pointerInside = false;
+    this.pointerSpeed = 0;
+    this.previousPointerTime = 0;
   };
 
   private readonly draw = (time: number): void => {
     const { context, width, height } = this;
+    const deltaTime = this.previousFrameTime
+      ? Math.min((time - this.previousFrameTime) / 1000, 0.05)
+      : 0;
+    this.previousFrameTime = time;
     context.clearRect(0, 0, width, height);
 
     for (const shape of this.shapes) {
       const drift = this.reducedMotion.matches ? 0 : shape.drift;
       const floatX = Math.sin(time * 0.00022 * drift + shape.phase) * 13;
       const floatY = Math.cos(time * 0.00018 * drift + shape.phase) * 11;
-      let x = shape.x + floatX;
-      let y = shape.y + floatY;
+      const baseX = shape.x + floatX;
+      const baseY = shape.y + floatY;
+      const dx = baseX + shape.offsetX - this.pointerX;
+      const dy = baseY + shape.offsetY - this.pointerY;
+      const distance = Math.hypot(dx, dy);
+      const influence =
+        this.pointerInside && !this.reducedMotion.matches
+          ? Math.max(0, 1 - distance / 150) * 42
+          : 0;
 
-      if (this.pointerInside && !this.reducedMotion.matches) {
-        const dx = x - this.pointerX;
-        const dy = y - this.pointerY;
-        const distance = Math.hypot(dx, dy);
-        const influence = Math.max(0, 1 - distance / 170) * 14;
-        if (distance > 0) {
-          x += (dx / distance) * influence;
-          y += (dy / distance) * influence;
-        }
+      if (deltaTime > 0) {
+        shape.velocityX +=
+          ((distance > 0 ? (dx / distance) * influence : 0) -
+            shape.offsetX * 2.2 -
+            shape.velocityX * 2.5) *
+          deltaTime;
+        shape.velocityY +=
+          ((distance > 0 ? (dy / distance) * influence : 0) -
+            shape.offsetY * 2.2 -
+            shape.velocityY * 2.5) *
+          deltaTime;
+        shape.velocityX = Math.max(-24, Math.min(24, shape.velocityX));
+        shape.velocityY = Math.max(-24, Math.min(24, shape.velocityY));
+        shape.offsetX = Math.max(
+          -40,
+          Math.min(40, shape.offsetX + shape.velocityX * deltaTime),
+        );
+        shape.offsetY = Math.max(
+          -40,
+          Math.min(40, shape.offsetY + shape.velocityY * deltaTime),
+        );
       }
 
+      const x = baseX + shape.offsetX;
+      const y = baseY + shape.offsetY;
       shape.renderX = x;
       shape.renderY = y;
       const isHovered =
@@ -151,7 +204,7 @@ class MeadowActivity implements Activity {
         Math.hypot(x - this.pointerX, y - this.pointerY) <= shape.radius;
       if (isHovered && !shape.isHovered) {
         void this.audio
-          .playParticleTone(shape.noteIndex)
+          .playParticleTone(shape.noteIndex, this.pointerSpeed)
           .catch(this.onAudioError);
       }
       shape.isHovered = isHovered;
