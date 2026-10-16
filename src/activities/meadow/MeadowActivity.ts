@@ -545,7 +545,11 @@ class MeadowActivity implements Activity {
         isStatic: this.reducedMotion.matches,
       },
     );
-    this.windTrail.draw(this.context, time, themeColors.isDark);
+    if (this.reducedMotion.matches) {
+      this.windTrail.clear();
+    } else {
+      this.windTrail.draw(this.context, time, themeColors.isDark);
+    }
     this.thoughtCloud.draw(this.context, time, themeColors.isDark);
   }
 
