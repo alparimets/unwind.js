@@ -105,7 +105,7 @@ class MeadowActivity implements Activity {
       button.addEventListener('click', this.onThemeSelection);
     });
     this.updateSessionTime();
-    window.addEventListener('resize', this.resize);
+    globalThis.addEventListener('resize', this.resize);
     this.canvas.addEventListener('pointermove', this.onPointerMove);
     this.canvas.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('pointerleave', this.onPointerLeave);
@@ -116,7 +116,7 @@ class MeadowActivity implements Activity {
     cancelAnimationFrame(this.frameId);
     cancelAnimationFrame(this.breathFrame);
     if (this.timerInterval !== undefined) {
-      window.clearInterval(this.timerInterval);
+      globalThis.clearInterval(this.timerInterval);
     }
     this.breathToggle?.removeEventListener('click', this.toggleBreathing);
     this.timerToggle?.removeEventListener('click', this.toggleTimer);
@@ -124,7 +124,7 @@ class MeadowActivity implements Activity {
     this.themeButtons.forEach((button) => {
       button.removeEventListener('click', this.onThemeSelection);
     });
-    window.removeEventListener('resize', this.resize);
+    globalThis.removeEventListener('resize', this.resize);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
@@ -210,7 +210,7 @@ class MeadowActivity implements Activity {
   private readonly toggleTimer = (): void => {
     if (this.timerStartedAt === undefined) {
       this.timerStartedAt = performance.now();
-      this.timerInterval = window.setInterval(this.updateSessionTime, 1000);
+      this.timerInterval = globalThis.setInterval(this.updateSessionTime, 1000);
       if (this.timerToggle) {
         this.timerToggle.textContent = 'Pause timer';
       }
@@ -221,7 +221,7 @@ class MeadowActivity implements Activity {
     this.elapsedBeforeStart += performance.now() - this.timerStartedAt;
     this.timerStartedAt = undefined;
     if (this.timerInterval !== undefined) {
-      window.clearInterval(this.timerInterval);
+      globalThis.clearInterval(this.timerInterval);
       this.timerInterval = undefined;
     }
     if (this.timerToggle) {
@@ -234,7 +234,7 @@ class MeadowActivity implements Activity {
     this.elapsedBeforeStart = 0;
     this.timerStartedAt = undefined;
     if (this.timerInterval !== undefined) {
-      window.clearInterval(this.timerInterval);
+      globalThis.clearInterval(this.timerInterval);
       this.timerInterval = undefined;
     }
     if (this.timerToggle) {
@@ -269,7 +269,7 @@ class MeadowActivity implements Activity {
 
   private readonly resize = (): void => {
     const bounds = this.canvas.getBoundingClientRect();
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelRatio = Math.min(globalThis.devicePixelRatio || 1, 2);
     this.width = bounds.width;
     this.height = bounds.height;
     this.canvas.width = Math.round(this.width * pixelRatio);
