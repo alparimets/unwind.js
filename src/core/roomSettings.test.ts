@@ -11,31 +11,41 @@ describe('parseRoomSettings', () => {
     expect(parseRoomSettings('#')).toEqual(DEFAULT_ROOM_SETTINGS);
   });
 
-  it('parses valid theme, timer, and audio levels', () => {
-    expect(parseRoomSettings('#theme=nightfall&timer=20&rain=0.2&drone=0.4&chimes=0.8')).toEqual({
+  it('parses theme, timer, audio levels, beat and auto theme', () => {
+    expect(
+      parseRoomSettings(
+        '#theme=nightfall&timer=20&rain=0.2&drone=0.4&chimes=0.8&thunder=0.3&binaural=0.1&beat=4&auto=1',
+      ),
+    ).toEqual({
       theme: 'nightfall',
       timer: '20',
-      levels: { rain: 0.2, drone: 0.4, chimes: 0.8 },
+      levels: { rain: 0.2, drone: 0.4, chimes: 0.8, thunder: 0.3, binaural: 0.1 },
+      beat: '4',
+      autoTheme: true,
     });
   });
 
-  it('falls back for unsupported themes and timer durations', () => {
-    expect(parseRoomSettings('#theme=unknown&timer=7')).toEqual(
+  it('accepts the dawn theme', () => {
+    expect(parseRoomSettings('#theme=dawn').theme).toBe('dawn');
+  });
+
+  it('falls back for unsupported themes, timers and beats', () => {
+    expect(parseRoomSettings('#theme=unknown&timer=7&beat=9')).toEqual(
       DEFAULT_ROOM_SETTINGS,
     );
   });
 
   it('clamps finite levels and defaults malformed or missing levels', () => {
-    expect(parseRoomSettings('#rain=-2&drone=4&chimes=nope')).toEqual({
-      ...DEFAULT_ROOM_SETTINGS,
-      levels: { rain: 0, drone: 1, chimes: 0.7 },
+    expect(parseRoomSettings('#rain=-2&drone=4&chimes=nope').levels).toEqual({
+      ...DEFAULT_ROOM_SETTINGS.levels,
+      rain: 0,
+      drone: 1,
     });
   });
 
   it('treats empty mixer values as defaults', () => {
     expect(parseRoomSettings('#rain=&drone=%20&chimes=0.25').levels).toEqual({
-      rain: 0.32,
-      drone: 0.55,
+      ...DEFAULT_ROOM_SETTINGS.levels,
       chimes: 0.25,
     });
   });
@@ -47,16 +57,22 @@ describe('serializeRoomSettings', () => {
       serializeRoomSettings({
         theme: 'dusk',
         timer: '10',
-        levels: { rain: 0, drone: 0.555, chimes: 1 },
+        levels: { rain: 0, drone: 0.555, chimes: 1, thunder: 0.2, binaural: 0 },
+        beat: '7',
+        autoTheme: false,
       }),
-    ).toBe('#theme=dusk&timer=10&rain=0.00&drone=0.56&chimes=1.00');
+    ).toBe(
+      '#theme=dusk&timer=10&rain=0.00&drone=0.56&chimes=1.00&thunder=0.20&binaural=0.00&beat=7&auto=0',
+    );
   });
 
   it('round-trips supported settings through a URL hash', () => {
     const settings = {
       theme: 'mist' as const,
       timer: '30' as const,
-      levels: { rain: 0.15, drone: 0.65, chimes: 0.95 },
+      levels: { rain: 0.15, drone: 0.65, chimes: 0.95, thunder: 0.4, binaural: 0.05 },
+      beat: '4' as const,
+      autoTheme: true,
     };
     expect(parseRoomSettings(serializeRoomSettings(settings))).toEqual(settings);
   });

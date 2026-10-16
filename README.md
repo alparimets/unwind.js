@@ -11,7 +11,7 @@ npm run dev
 
 Open the local URL printed by Vite. The meadow responds softly to pointer movement. Use **Ambient sound** to start or pause its generated, looping tones, and **Full screen** to expand the canvas. Keyboard shortcuts are **Space** for sound and **F** for full screen.
 
-The canvas fills the viewport. Choose **Meadow**, **Dusk**, **Mist**, or **Nightfall** to change the colors and generated tones. With sound enabled, hovering over or touching a floating particle plays a soft, spatialized chime. The mixer adjusts synthesized rain/wind, drone, and particle chime layers independently. The breathing guide supports 4-7-8, box, and calm rhythms; the session timer is a configurable countdown.
+The canvas fills the viewport. Choose **Dawn**, **Meadow**, **Dusk**, **Mist**, or **Nightfall** (or **Match time of day**) to change the colors and generated tones. Click and drag to draw a glowing breeze trail that nudges nearby particles; close particles are joined by faint, shifting constellation lines. With sound enabled, hovering over a particle plays a soft chime and clicking it rings a singing bowl that decays over ~9 seconds. The mixer adjusts rain/wind, drone, chimes/bowls, faraway thunder and optional binaural tones (Theta 7 Hz / Delta 4 Hz — use headphones). **A thought to release** turns typed text into particles that drift away (never stored or shared). **Hourly bell** rings a soft temple bell each hour while sound is on, and **Fireflies** makes Nightfall particles flicker. The breathing guide supports 4-7-8, box, and calm rhythms; the session timer is a configurable countdown.
 
 Controls fade after five seconds of mouse inactivity and reappear when the pointer moves. Touch and keyboard users can show or hide the controls with the always-visible control button.
 
@@ -41,7 +41,7 @@ The production build uses `/unwind.js/` as its base path for the project’s Git
 The theme, countdown duration, and sound levels are stored in the URL hash, so **Copy room link** can share a setup, for example:
 
 ```text
-#theme=dusk&timer=10&rain=0.32&drone=0.55&chimes=0.70
+#theme=dusk&timer=10&rain=0.32&drone=0.55&chimes=0.70&thunder=0.00&binaural=0.00&beat=7&auto=0
 ```
 
 The app remains stateless: shared settings live only in the URL, with no account, server, or database.

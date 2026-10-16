@@ -56,10 +56,14 @@
           <div class="room-panel theme-panel">
             <div class="theme-controls" role="group" aria-label="Color and sound preset">
               <span class="theme-label">Atmosphere</span>
+              <button class="theme-button" type="button" data-theme="dawn" aria-pressed="false">Dawn</button>
               <button class="theme-button" type="button" data-theme="meadow" aria-pressed="true">Meadow</button>
               <button class="theme-button" type="button" data-theme="dusk" aria-pressed="false">Dusk</button>
               <button class="theme-button" type="button" data-theme="mist" aria-pressed="false">Mist</button>
               <button class="theme-button" type="button" data-theme="nightfall" aria-pressed="false">Nightfall</button>
+              <button id="auto-theme" class="theme-button" type="button" aria-pressed="false">Match time of day</button>
+              <button id="twinkle-toggle" class="theme-button nightfall-only" type="button" aria-pressed="false">Fireflies</button>
+              <button id="soft-hour-toggle" class="theme-button" type="button" aria-pressed="false">Hourly bell</button>
             </div>
             <div class="mixer" role="group" aria-label="Ambient sound mixer">
               <label class="mixer-control" for="rain-level">
@@ -71,13 +75,36 @@
                 <input id="drone-level" data-layer="drone" type="range" min="0" max="1" step="0.01" value="0.55" />
               </label>
               <label class="mixer-control" for="chimes-level">
-                <span>Particle chimes</span>
+                <span>Chimes &amp; bowls</span>
                 <input id="chimes-level" data-layer="chimes" type="range" min="0" max="1" step="0.01" value="0.7" />
+              </label>
+              <label class="mixer-control" for="thunder-level">
+                <span>Faraway thunder</span>
+                <input id="thunder-level" data-layer="thunder" type="range" min="0" max="1" step="0.01" value="0" />
+              </label>
+              <label class="mixer-control" for="binaural-level">
+                <span>Binaural tones</span>
+                <input id="binaural-level" data-layer="binaural" type="range" min="0" max="1" step="0.01" value="0" />
+              </label>
+              <label class="mixer-control" for="binaural-beat">
+                <span>Beat (use headphones)</span>
+                <select id="binaural-beat">
+                  <option value="7" selected>Theta 7 Hz</option>
+                  <option value="4">Delta 4 Hz</option>
+                </select>
               </label>
             </div>
           </div>
 
           <section class="quiet-tools" aria-label="Quiet time tools">
+            <article class="tool-card release-card">
+              <p class="tool-eyebrow">A THOUGHT TO RELEASE</p>
+              <form id="release-form" class="release-form">
+                <label class="visually-hidden" for="release-text">A thought to let go of</label>
+                <input id="release-text" type="text" maxlength="80" autocomplete="off" placeholder="Write a thought you want to let go of..." />
+                <button class="control-button" type="submit">Let it go</button>
+              </form>
+            </article>
             <article class="tool-card breathing-card">
               <div class="tool-copy">
                 <p class="tool-eyebrow">A BREATHING MOMENT</p>
