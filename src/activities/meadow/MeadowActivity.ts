@@ -9,6 +9,12 @@ interface FloatingShape {
   hue: number;
 }
 
+function randomUnit(): number {
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return value[0] / 0x1_0000_0000;
+}
+
 class MeadowActivity implements Activity {
   private readonly context: CanvasRenderingContext2D;
   private readonly shapes: FloatingShape[] = [];
@@ -64,12 +70,12 @@ class MeadowActivity implements Activity {
     const count = Math.max(18, Math.min(34, Math.round(this.width / 32)));
     for (let index = 0; index < count; index += 1) {
       this.shapes.push({
-        x: Math.random() * this.width,
-        y: Math.random() * this.height,
-        radius: 12 + Math.random() * 38,
-        phase: Math.random() * Math.PI * 2,
-        drift: 0.16 + Math.random() * 0.4,
-        hue: 80 + Math.random() * 70,
+        x: randomUnit() * this.width,
+        y: randomUnit() * this.height,
+        radius: 12 + randomUnit() * 38,
+        phase: randomUnit() * Math.PI * 2,
+        drift: 0.16 + randomUnit() * 0.4,
+        hue: 80 + randomUnit() * 70,
       });
     }
   }
