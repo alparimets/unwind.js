@@ -39,7 +39,7 @@ export function sampleTextPoints(
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.fillStyle = '#fff';
-  context.fillText(text, width / 2, height * 0.45);
+  context.fillText(text, width / 2, height * 0.45, maxWidth);
 
   const step = 3;
   const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
