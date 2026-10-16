@@ -1,6 +1,6 @@
 import { loadActivity, type ActivityId } from './core/activityRegistry';
 import type { Activity } from './core/activity';
-import { themeForHour } from './core/atmosphere';
+import { initialTheme, themeForHour } from './core/atmosphere';
 import { isThemePreset, type ThemePreset } from './core/theme';
 import {
   AUDIO_LAYERS,
@@ -304,9 +304,16 @@ document.addEventListener('keydown', (event: KeyboardEvent) => {
 
 const activityId: ActivityId = 'meadow';
 const roomState = parseRoomSettings(globalThis.location.hash);
+const hasExplicitTheme = new URLSearchParams(
+  globalThis.location.hash.replace(/^#/, ''),
+).has('theme');
 const startupTheme = roomState.autoTheme
   ? themeForHour(new Date().getHours())
-  : roomState.theme;
+  : initialTheme(
+      hasExplicitTheme ? roomState.theme : undefined,
+      globalThis.matchMedia('(prefers-color-scheme: dark)').matches,
+      new Date().getHours(),
+    );
 document.documentElement.dataset.theme = startupTheme;
 timerDuration.value = roomState.timer;
 layerSliders.forEach((slider) => {

@@ -41,6 +41,18 @@ const AUDIO_PRESETS: Record<ThemePreset, AudioPreset> = {
     notes: [587.33, 659.25, 783.99, 880, 1046.5],
     drone: [41.2, 61.74, 82.41],
   },
+  forest: {
+    notes: [196, 220, 246.94, 293.66, 329.63],
+    drone: [36.71, 55, 73.42],
+  },
+  cosmos: {
+    notes: [440, 523.25, 587.33, 698.46, 783.99],
+    drone: [43.65, 65.41, 87.31],
+  },
+  obsidian: {
+    notes: [130.81, 146.83, 164.81, 196, 220],
+    drone: [32.7, 49, 65.41],
+  },
 };
 
 const LAYER_GAINS: Record<AudioLayer, number> = {
