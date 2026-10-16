@@ -11,16 +11,16 @@ export const THEME_PRESETS = [
 
 export type ThemePreset = (typeof THEME_PRESETS)[number];
 
-const DARK_THEMES: readonly ThemePreset[] = [
+const DARK_THEMES: ReadonlySet<ThemePreset> = new Set<ThemePreset>([
   'dusk',
   'nightfall',
   'forest',
   'cosmos',
   'obsidian',
-];
+]);
 
 export function isDarkTheme(theme: ThemePreset): boolean {
-  return DARK_THEMES.includes(theme);
+  return DARK_THEMES.has(theme);
 }
 
 export function isThemePreset(value: unknown): value is ThemePreset {

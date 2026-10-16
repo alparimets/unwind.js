@@ -307,13 +307,17 @@ const roomState = parseRoomSettings(globalThis.location.hash);
 const hasExplicitTheme = new URLSearchParams(
   globalThis.location.hash.replace(/^#/, ''),
 ).has('theme');
-const startupTheme = roomState.autoTheme
-  ? themeForHour(new Date().getHours())
-  : initialTheme(
-      hasExplicitTheme ? roomState.theme : undefined,
-      globalThis.matchMedia('(prefers-color-scheme: dark)').matches,
-      new Date().getHours(),
-    );
+const startupHour = new Date().getHours();
+let startupTheme: ThemePreset;
+if (roomState.autoTheme) {
+  startupTheme = themeForHour(startupHour);
+} else {
+  startupTheme = initialTheme(
+    hasExplicitTheme ? roomState.theme : undefined,
+    globalThis.matchMedia('(prefers-color-scheme: dark)').matches,
+    startupHour,
+  );
+}
 document.documentElement.dataset.theme = startupTheme;
 timerDuration.value = roomState.timer;
 layerSliders.forEach((slider) => {
