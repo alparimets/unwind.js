@@ -76,7 +76,9 @@ document.addEventListener('fullscreenchange', () => {
 document.addEventListener('keydown', (event: KeyboardEvent) => {
   if (
     event.target instanceof HTMLElement &&
-    (event.target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName))
+    (event.target.isContentEditable ||
+      event.target instanceof HTMLButtonElement ||
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName))
   ) {
     return;
   }
@@ -100,5 +102,6 @@ const activity = await loadActivity(activityId, {
     );
   },
 });
+activity.setPreset('meadow');
 activity.start();
 window.addEventListener('pagehide', () => activity.dispose(), { once: true });

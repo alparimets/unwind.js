@@ -11,6 +11,8 @@ npm run dev
 
 Open the local URL printed by Vite. The meadow responds softly to pointer movement. Use **Ambient sound** to start or pause its generated, looping tones, and **Full screen** to expand the canvas. Keyboard shortcuts are **Space** for sound and **F** for full screen.
 
+Choose **Meadow**, **Dusk**, or **Mist** to change the colors and generated tones. With sound enabled, hovering over or clicking a floating particle plays a soft chime, while a quiet synthesized drone continues in the background. The optional breathing guide follows a 4-7-8 cycle, and the session timer can be started, paused, and reset. Neither tool saves session data.
+
 ## Project structure
 
 - `src/core/` contains the activity contract and central activity registry.

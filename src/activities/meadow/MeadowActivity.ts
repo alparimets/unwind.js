@@ -1,4 +1,5 @@
 import type { Activity, ActivityAudio, ActivityContext } from '../../core/activity';
+import type { ThemePreset } from '../../core/theme';
 
 interface FloatingShape {
   x: number;
@@ -6,7 +7,6 @@ interface FloatingShape {
   radius: number;
   phase: number;
   drift: number;
-  hue: number;
   noteIndex: number;
   renderX: number;
   renderY: number;
@@ -15,9 +15,23 @@ interface FloatingShape {
   velocityX: number;
   velocityY: number;
   isHovered: boolean;
+  rippleStartedAt: number | undefined;
+  hueVariant: number;
+  depth: number;
 }
 
 const MAX_POINTER_SPEED = 1.5;
+const DEPTH_SCALE = [0.55, 0.78, 1];
+const DEPTH_MOTION = [0.35, 0.65, 1];
+const RIPPLE_DURATION = 1.1;
+const THEME_COLORS: Record<
+  ThemePreset,
+  { hueMin: number; hueMax: number; saturation: number }
+> = {
+  meadow: { hueMin: 80, hueMax: 150, saturation: 42 },
+  dusk: { hueMin: 32, hueMax: 48, saturation: 58 },
+  mist: { hueMin: 188, hueMax: 208, saturation: 22 },
+};
 
 function randomUnit(): number {
   const value = new Uint32Array(1);
@@ -42,6 +56,32 @@ class MeadowActivity implements Activity {
   private pointerSpeed = 0;
   private previousPointerTime = 0;
   private previousFrameTime = 0;
+  private preset: ThemePreset = 'meadow';
+  private readonly breathPhases = [
+    { label: 'Breathe in', duration: 4000, scale: 1.14 },
+    { label: 'Hold gently', duration: 7000, scale: 1.14 },
+    { label: 'Breathe out', duration: 8000, scale: 0.76 },
+  ];
+  private breathStart: number | undefined;
+  private breathFrame = 0;
+  private breathPhaseIndex = -1;
+  private readonly breathToggle =
+    document.querySelector<HTMLButtonElement>('#breath-toggle');
+  private readonly breathOrb =
+    document.querySelector<HTMLElement>('#breath-orb');
+  private readonly breathPhase =
+    document.querySelector<HTMLElement>('#breath-phase');
+  private readonly timerToggle =
+    document.querySelector<HTMLButtonElement>('#timer-toggle');
+  private readonly timerReset =
+    document.querySelector<HTMLButtonElement>('#timer-reset');
+  private readonly sessionTime =
+    document.querySelector<HTMLOutputElement>('#session-time');
+  private readonly themeButtons =
+    document.querySelectorAll<HTMLButtonElement>('.theme-button[data-theme]');
+  private timerStartedAt: number | undefined;
+  private elapsedBeforeStart = 0;
+  private timerInterval: number | undefined;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -58,7 +98,14 @@ class MeadowActivity implements Activity {
   start(): void {
     this.resize();
     this.createShapes();
-    window.addEventListener('resize', this.resize);
+    this.breathToggle?.addEventListener('click', this.toggleBreathing);
+    this.timerToggle?.addEventListener('click', this.toggleTimer);
+    this.timerReset?.addEventListener('click', this.resetTimer);
+    this.themeButtons.forEach((button) => {
+      button.addEventListener('click', this.onThemeSelection);
+    });
+    this.updateSessionTime();
+    globalThis.addEventListener('resize', this.resize);
     this.canvas.addEventListener('pointermove', this.onPointerMove);
     this.canvas.addEventListener('pointerdown', this.onPointerDown);
     this.canvas.addEventListener('pointerleave', this.onPointerLeave);
@@ -67,15 +114,162 @@ class MeadowActivity implements Activity {
 
   dispose(): void {
     cancelAnimationFrame(this.frameId);
-    window.removeEventListener('resize', this.resize);
+    cancelAnimationFrame(this.breathFrame);
+    if (this.timerInterval !== undefined) {
+      globalThis.clearInterval(this.timerInterval);
+    }
+    this.breathToggle?.removeEventListener('click', this.toggleBreathing);
+    this.timerToggle?.removeEventListener('click', this.toggleTimer);
+    this.timerReset?.removeEventListener('click', this.resetTimer);
+    this.themeButtons.forEach((button) => {
+      button.removeEventListener('click', this.onThemeSelection);
+    });
+    globalThis.removeEventListener('resize', this.resize);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
   }
 
+  setPreset(preset: ThemePreset): void {
+    this.preset = preset;
+    this.audio.setPreset(preset);
+    document.documentElement.dataset.theme = preset;
+    this.themeButtons.forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.theme === preset));
+    });
+  }
+
+  private readonly onThemeSelection = (event: MouseEvent): void => {
+    const preset = (event.currentTarget as HTMLButtonElement).dataset.theme;
+    if (preset === 'meadow' || preset === 'dusk' || preset === 'mist') {
+      this.setPreset(preset);
+    }
+  };
+
+  private readonly toggleBreathing = (): void => {
+    if (this.breathStart === undefined) {
+      this.breathStart = performance.now();
+      this.breathPhaseIndex = -1;
+      if (this.breathToggle) {
+        this.breathToggle.textContent = 'Stop breathing guide';
+        this.breathToggle.setAttribute('aria-pressed', 'true');
+      }
+      this.breathFrame = requestAnimationFrame(this.updateBreathing);
+      return;
+    }
+
+    this.breathStart = undefined;
+    cancelAnimationFrame(this.breathFrame);
+    this.breathPhaseIndex = -1;
+    if (this.breathToggle) {
+      this.breathToggle.textContent = 'Start breathing';
+      this.breathToggle.setAttribute('aria-pressed', 'false');
+    }
+    if (this.breathPhase) {
+      this.breathPhase.textContent = 'Ready when you are.';
+    }
+    if (this.breathOrb) {
+      this.breathOrb.style.transitionDuration = '700ms';
+      this.breathOrb.style.transform = 'scale(0.76)';
+    }
+  };
+
+  private readonly updateBreathing = (time: number): void => {
+    if (this.breathStart === undefined) {
+      return;
+    }
+
+    const cycleDuration = this.breathPhases.reduce(
+      (total, phase) => total + phase.duration,
+      0,
+    );
+    const elapsedInCycle = (time - this.breathStart) % cycleDuration;
+    let phaseStart = 0;
+    const phaseIndex = this.breathPhases.findIndex((phase) => {
+      const phaseEnd = phaseStart + phase.duration;
+      const isCurrentPhase = elapsedInCycle < phaseEnd;
+      phaseStart = phaseEnd;
+      return isCurrentPhase;
+    });
+    const phase = this.breathPhases[phaseIndex];
+
+    if (phaseIndex !== this.breathPhaseIndex) {
+      this.breathPhaseIndex = phaseIndex;
+      if (this.breathPhase) {
+        this.breathPhase.textContent = phase.label;
+      }
+      if (this.breathOrb) {
+        this.breathOrb.style.transitionDuration = `${phase.duration}ms`;
+        this.breathOrb.style.transform = `scale(${phase.scale})`;
+      }
+    }
+
+    this.breathFrame = requestAnimationFrame(this.updateBreathing);
+  };
+
+  private readonly toggleTimer = (): void => {
+    if (this.timerStartedAt === undefined) {
+      this.timerStartedAt = performance.now();
+      this.timerInterval = globalThis.setInterval(this.updateSessionTime, 1000);
+      if (this.timerToggle) {
+        this.timerToggle.textContent = 'Pause timer';
+      }
+      this.updateSessionTime();
+      return;
+    }
+
+    this.elapsedBeforeStart += performance.now() - this.timerStartedAt;
+    this.timerStartedAt = undefined;
+    if (this.timerInterval !== undefined) {
+      globalThis.clearInterval(this.timerInterval);
+      this.timerInterval = undefined;
+    }
+    if (this.timerToggle) {
+      this.timerToggle.textContent = 'Resume timer';
+    }
+    this.updateSessionTime();
+  };
+
+  private readonly resetTimer = (): void => {
+    this.elapsedBeforeStart = 0;
+    this.timerStartedAt = undefined;
+    if (this.timerInterval !== undefined) {
+      globalThis.clearInterval(this.timerInterval);
+      this.timerInterval = undefined;
+    }
+    if (this.timerToggle) {
+      this.timerToggle.textContent = 'Start timer';
+    }
+    this.updateSessionTime();
+  };
+
+  private readonly updateSessionTime = (): void => {
+    if (!this.sessionTime) {
+      return;
+    }
+    const elapsed =
+      this.elapsedBeforeStart +
+      (this.timerStartedAt === undefined
+        ? 0
+        : performance.now() - this.timerStartedAt);
+    const totalSeconds = Math.floor(elapsed / 1000);
+    const minutes = Math.floor(totalSeconds / 60)
+      .toString()
+      .padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    const hours = Math.floor(totalSeconds / 3600);
+    const displayMinutes = (Math.floor(totalSeconds / 60) % 60)
+      .toString()
+      .padStart(2, '0');
+    this.sessionTime.textContent =
+      hours > 0
+        ? `${hours.toString().padStart(2, '0')}:${displayMinutes}:${seconds}`
+        : `${minutes}:${seconds}`;
+  };
+
   private readonly resize = (): void => {
     const bounds = this.canvas.getBoundingClientRect();
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelRatio = Math.min(globalThis.devicePixelRatio || 1, 2);
     this.width = bounds.width;
     this.height = bounds.height;
     this.canvas.width = Math.round(this.width * pixelRatio);
@@ -96,7 +290,6 @@ class MeadowActivity implements Activity {
         radius: 12 + randomUnit() * 38,
         phase: randomUnit() * Math.PI * 2,
         drift: 0.16 + randomUnit() * 0.4,
-        hue: 80 + randomUnit() * 70,
         noteIndex: Math.floor(randomUnit() * 5),
         renderX: 0,
         renderY: 0,
@@ -105,8 +298,12 @@ class MeadowActivity implements Activity {
         velocityX: 0,
         velocityY: 0,
         isHovered: false,
+        rippleStartedAt: undefined,
+        hueVariant: randomUnit(),
+        depth: Math.floor(randomUnit() * DEPTH_SCALE.length),
       });
     }
+    this.shapes.sort((left, right) => left.depth - right.depth);
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
@@ -132,12 +329,14 @@ class MeadowActivity implements Activity {
     const bounds = this.canvas.getBoundingClientRect();
     const x = event.clientX - bounds.left;
     const y = event.clientY - bounds.top;
-    const shape = this.shapes.find(
-      (candidate) =>
-        Math.hypot(candidate.renderX - x, candidate.renderY - y) <=
-        candidate.radius,
-    );
+    const shape = [...this.shapes].reverse().find((candidate) => {
+      const radius = candidate.radius * DEPTH_SCALE[candidate.depth];
+      return Math.hypot(candidate.renderX - x, candidate.renderY - y) <= radius;
+    });
     if (shape) {
+      shape.rippleStartedAt = this.reducedMotion.matches
+        ? undefined
+        : event.timeStamp;
       void this.audio
         .playParticleTone(shape.noteIndex, this.pointerSpeed)
         .catch(this.onAudioError);
@@ -156,12 +355,18 @@ class MeadowActivity implements Activity {
       ? Math.min((time - this.previousFrameTime) / 1000, 0.05)
       : 0;
     this.previousFrameTime = time;
+    this.pointerSpeed *= Math.exp(-deltaTime * 2);
     context.clearRect(0, 0, width, height);
 
     for (const shape of this.shapes) {
       const drift = this.reducedMotion.matches ? 0 : shape.drift;
-      const floatX = Math.sin(time * 0.00022 * drift + shape.phase) * 13;
-      const floatY = Math.cos(time * 0.00018 * drift + shape.phase) * 11;
+      const depthMotion = DEPTH_MOTION[shape.depth];
+      const sizeScale = DEPTH_SCALE[shape.depth];
+      const radius = shape.radius * sizeScale;
+      const floatX =
+        Math.sin(time * 0.00022 * drift + shape.phase) * 13 * depthMotion;
+      const floatY =
+        Math.cos(time * 0.00018 * drift + shape.phase) * 11 * depthMotion;
       const baseX = shape.x + floatX;
       const baseY = shape.y + floatY;
       const dx = baseX + shape.offsetX - this.pointerX;
@@ -169,7 +374,7 @@ class MeadowActivity implements Activity {
       const distance = Math.hypot(dx, dy);
       const influence =
         this.pointerInside && !this.reducedMotion.matches
-          ? Math.max(0, 1 - distance / 150) * 42
+          ? Math.max(0, 1 - distance / 150) * 42 * depthMotion
           : 0;
 
       if (deltaTime > 0) {
@@ -201,28 +406,53 @@ class MeadowActivity implements Activity {
       shape.renderY = y;
       const isHovered =
         this.pointerInside &&
-        Math.hypot(x - this.pointerX, y - this.pointerY) <= shape.radius;
+        Math.hypot(x - this.pointerX, y - this.pointerY) <= radius;
       if (isHovered && !shape.isHovered) {
+        shape.rippleStartedAt = this.reducedMotion.matches ? undefined : time;
         void this.audio
           .playParticleTone(shape.noteIndex, this.pointerSpeed)
           .catch(this.onAudioError);
       }
       shape.isHovered = isHovered;
 
+      const themeColors = THEME_COLORS[this.preset];
+      const hue =
+        themeColors.hueMin +
+        shape.hueVariant * (themeColors.hueMax - themeColors.hueMin);
+      const saturation = themeColors.saturation;
       const gradient = context.createRadialGradient(
-        x - shape.radius * 0.25,
-        y - shape.radius * 0.3,
+        x - radius * 0.25,
+        y - radius * 0.3,
         1,
         x,
         y,
-        shape.radius,
+        radius,
       );
-      gradient.addColorStop(0, `hsla(${shape.hue}, 42%, 78%, 0.42)`);
-      gradient.addColorStop(1, `hsla(${shape.hue}, 35%, 72%, 0)`);
+      const depthOpacity = [0.48, 0.68, 0.9][shape.depth];
+      gradient.addColorStop(
+        0,
+        `hsla(${hue}, ${saturation}%, 78%, ${0.42 * depthOpacity})`,
+      );
+      gradient.addColorStop(1, `hsla(${hue}, ${saturation}%, 72%, 0)`);
       context.fillStyle = gradient;
       context.beginPath();
-      context.arc(x, y, shape.radius, 0, Math.PI * 2);
+      context.arc(x, y, radius, 0, Math.PI * 2);
       context.fill();
+
+      if (shape.rippleStartedAt !== undefined) {
+        const age = (time - shape.rippleStartedAt) / 1000;
+        if (age >= RIPPLE_DURATION) {
+          shape.rippleStartedAt = undefined;
+        } else if (age >= 0) {
+          context.beginPath();
+          context.arc(x, y, radius * (0.72 + age * 1.2), 0, Math.PI * 2);
+          context.strokeStyle = `hsla(${hue}, ${saturation}%, 76%, ${
+            0.34 * (1 - age / RIPPLE_DURATION)
+          })`;
+          context.lineWidth = 1.5;
+          context.stroke();
+        }
+      }
     }
 
     this.frameId = requestAnimationFrame(this.draw);
