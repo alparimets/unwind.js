@@ -85,7 +85,7 @@ export class AmbientAudioController {
   }
 
   private createAudioGraph(): void {
-    const AudioContextConstructor = window.AudioContext;
+    const AudioContextConstructor = globalThis.AudioContext;
     if (!AudioContextConstructor) {
       throw new Error('Ambient audio is not supported in this browser.');
     }
