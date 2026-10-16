@@ -42,7 +42,7 @@ export class AmbientAudioController {
     }
   }
 
-  async playParticleTone(noteIndex: number): Promise<void> {
+  async playParticleTone(noteIndex: number, pointerSpeed: number): Promise<void> {
     if (!this.enabled) {
       return;
     }
@@ -60,15 +60,20 @@ export class AmbientAudioController {
       return;
     }
 
+    const speed = Math.min(Math.max(pointerSpeed, 0), 1);
     const frequency =
-      this.pentatonicNotes[noteIndex % this.pentatonicNotes.length];
+      this.pentatonicNotes[noteIndex % this.pentatonicNotes.length] *
+      (1 + speed * 0.12);
     const oscillator = audioContext.createOscillator();
     const envelope = audioContext.createGain();
     const now = audioContext.currentTime;
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(frequency, now);
     envelope.gain.setValueAtTime(0.0001, now);
-    envelope.gain.exponentialRampToValueAtTime(0.22, now + 0.025);
+    envelope.gain.exponentialRampToValueAtTime(
+      0.16 + speed * 0.12,
+      now + 0.025,
+    );
     envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
     oscillator.connect(envelope);
     envelope.connect(interactionGain);

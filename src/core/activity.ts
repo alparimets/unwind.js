@@ -7,7 +7,7 @@ export interface ActivityContext {
 export interface ActivityAudio {
   readonly isEnabled: boolean;
   resumeFromGesture(): Promise<void>;
-  playParticleTone(noteIndex: number): Promise<void>;
+  playParticleTone(noteIndex: number, pointerSpeed: number): Promise<void>;
 }
 
 export interface Activity {
