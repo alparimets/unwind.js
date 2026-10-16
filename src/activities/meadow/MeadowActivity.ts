@@ -1,5 +1,9 @@
 import type { Activity, ActivityAudio, ActivityContext } from '../../core/activity';
-import type { ThemePreset } from '../../core/theme';
+import { randomUnit } from '../../core/random';
+import { isThemePreset, type ThemePreset } from '../../core/theme';
+import { drawConstellations } from './constellations';
+import { sampleTextPoints, ThoughtCloud } from './thoughtCloud';
+import { WindTrail } from './windTrail';
 
 interface FloatingShape {
   x: number;
@@ -26,19 +30,20 @@ const DEPTH_MOTION = [0.35, 0.65, 1];
 const RIPPLE_DURATION = 1.1;
 const THEME_COLORS: Record<
   ThemePreset,
-  { hueMin: number; hueMax: number; saturation: number; lightness: number }
+  {
+    hueMin: number;
+    hueMax: number;
+    saturation: number;
+    lightness: number;
+    isDark: boolean;
+  }
 > = {
-  meadow: { hueMin: 80, hueMax: 150, saturation: 42, lightness: 78 },
-  dusk: { hueMin: 32, hueMax: 48, saturation: 58, lightness: 78 },
-  mist: { hueMin: 188, hueMax: 208, saturation: 22, lightness: 78 },
-  nightfall: { hueMin: 158, hueMax: 205, saturation: 76, lightness: 69 },
+  dawn: { hueMin: 342, hueMax: 395, saturation: 62, lightness: 80, isDark: false },
+  meadow: { hueMin: 80, hueMax: 150, saturation: 42, lightness: 78, isDark: false },
+  dusk: { hueMin: 32, hueMax: 48, saturation: 58, lightness: 78, isDark: true },
+  mist: { hueMin: 188, hueMax: 208, saturation: 22, lightness: 78, isDark: false },
+  nightfall: { hueMin: 158, hueMax: 205, saturation: 76, lightness: 69, isDark: true },
 };
-
-function randomUnit(): number {
-  const value = new Uint32Array(1);
-  crypto.getRandomValues(value);
-  return value[0] / 4294967296;
-}
 
 class MeadowActivity implements Activity {
   private readonly context: CanvasRenderingContext2D;
@@ -58,6 +63,10 @@ class MeadowActivity implements Activity {
   private previousPointerTime = 0;
   private previousFrameTime = 0;
   private resizeObserver: ResizeObserver | undefined;
+  private readonly windTrail = new WindTrail();
+  private readonly thoughtCloud = new ThoughtCloud();
+  private isDragging = false;
+  private twinkle = false;
   private preset: ThemePreset = 'meadow';
   private breathPhases = [
     { label: 'Breathe in', duration: 4000, scale: 1.14 },
@@ -160,15 +169,19 @@ class MeadowActivity implements Activity {
 
   private readonly onThemeSelection = (event: MouseEvent): void => {
     const preset = (event.currentTarget as HTMLButtonElement).dataset.theme;
-    if (
-      preset === 'meadow' ||
-      preset === 'dusk' ||
-      preset === 'mist' ||
-      preset === 'nightfall'
-    ) {
+    if (isThemePreset(preset)) {
       this.setPreset(preset);
     }
   };
+
+  releaseThought(text: string): void {
+    const points = sampleTextPoints(text, this.width, this.height);
+    this.thoughtCloud.release(points, performance.now(), !this.reducedMotion.matches);
+  }
+
+  setTwinkle(enabled: boolean): void {
+    this.twinkle = enabled;
+  }
 
   private readonly onBreathPatternChange = (): void => {
     this.breathPhases = this.getBreathPhases();
@@ -426,16 +439,34 @@ class MeadowActivity implements Activity {
       this.pointerY <= bounds.height;
     if (this.previousPointerTime > 0) {
       const elapsed = Math.max(event.timeStamp - this.previousPointerTime, 1);
-      const distance = Math.hypot(
-        this.pointerX - this.previousPointerX,
-        this.pointerY - this.previousPointerY,
-      );
+      const deltaX = this.pointerX - this.previousPointerX;
+      const deltaY = this.pointerY - this.previousPointerY;
+      const distance = Math.hypot(deltaX, deltaY);
       this.pointerSpeed = Math.min(distance / elapsed / MAX_POINTER_SPEED, 1);
+      this.extendTrail(deltaX, deltaY, elapsed, event.timeStamp);
     }
     this.previousPointerX = this.pointerX;
     this.previousPointerY = this.pointerY;
     this.previousPointerTime = event.timeStamp;
   };
+
+  private extendTrail(
+    deltaX: number,
+    deltaY: number,
+    elapsed: number,
+    time: number,
+  ): void {
+    if (!this.isDragging || !this.pointerInside) {
+      return;
+    }
+    this.windTrail.add(
+      this.pointerX,
+      this.pointerY,
+      (deltaX / elapsed) * 1000,
+      (deltaY / elapsed) * 1000,
+      time,
+    );
+  }
 
   private readonly onPointerDown = (event: PointerEvent): void => {
     const bounds = this.canvas.getBoundingClientRect();
@@ -444,6 +475,10 @@ class MeadowActivity implements Activity {
     this.pointerX = x;
     this.pointerY = y;
     this.pointerInside = x >= 0 && y >= 0 && x <= bounds.width && y <= bounds.height;
+    this.isDragging = true;
+    this.previousPointerX = x;
+    this.previousPointerY = y;
+    this.previousPointerTime = event.timeStamp;
     void this.audio.resumeFromGesture().catch(this.onAudioError);
     const shape = [...this.shapes].reverse().find((candidate) => {
       const radius = candidate.radius * DEPTH_SCALE[candidate.depth];
@@ -455,16 +490,13 @@ class MeadowActivity implements Activity {
         ? undefined
         : event.timeStamp;
       void this.audio
-        .playParticleTone(
-          shape.noteIndex,
-          this.pointerSpeed,
-          shape.renderX / Math.max(this.width, 1),
-        )
+        .playSingingBowl(shape.noteIndex, shape.renderX / Math.max(this.width, 1))
         .catch(this.onAudioError);
     }
   };
 
   private readonly onPointerEnd = (event: PointerEvent): void => {
+    this.isDragging = false;
     if (event.type !== 'pointercancel' && event.pointerType !== 'touch') {
       return;
     }
@@ -478,6 +510,7 @@ class MeadowActivity implements Activity {
   };
 
   private readonly onPointerLeave = (): void => {
+    this.isDragging = false;
     this.pointerInside = false;
     this.pointerSpeed = 0;
     this.previousPointerTime = 0;
@@ -491,8 +524,51 @@ class MeadowActivity implements Activity {
     this.pointerSpeed *= Math.exp(-deltaTime * 2);
     this.context.clearRect(0, 0, this.width, this.height);
     this.shapes.forEach((shape) => this.drawShape(shape, time, deltaTime));
+    this.drawOverlays(time);
     this.frameId = requestAnimationFrame(this.draw);
   };
+
+  private drawOverlays(time: number): void {
+    const themeColors = THEME_COLORS[this.preset];
+    const hue = (themeColors.hueMin + themeColors.hueMax) / 2;
+    drawConstellations(
+      this.context,
+      this.shapes.map((shape) => ({
+        x: shape.renderX,
+        y: shape.renderY,
+        seed: shape.hueVariant,
+      })),
+      {
+        time,
+        hue,
+        isDark: themeColors.isDark,
+        isStatic: this.reducedMotion.matches,
+      },
+    );
+    this.windTrail.draw(this.context, time, themeColors.isDark);
+    this.thoughtCloud.draw(this.context, time, themeColors.isDark);
+  }
+
+  private getForce(
+    dx: number,
+    dy: number,
+    distance: number,
+    depthMotion: number,
+    flow: { x: number; y: number },
+  ): { x: number; y: number } {
+    const animated = !this.reducedMotion.matches;
+    const influence =
+      this.pointerInside && animated
+        ? Math.max(0, 1 - distance / 150) * 42 * depthMotion
+        : 0;
+    const directionX = distance > 0 ? dx / distance : 0;
+    const directionY = distance > 0 ? dy / distance : 0;
+    const windScale = animated ? depthMotion : 0;
+    return {
+      x: directionX * influence + flow.x * windScale,
+      y: directionY * influence + flow.y * windScale,
+    };
+  }
 
   private drawShape(
     shape: FloatingShape,
@@ -509,7 +585,13 @@ class MeadowActivity implements Activity {
     const dx = baseX + shape.offsetX - this.pointerX;
     const dy = baseY + shape.offsetY - this.pointerY;
     const distance = Math.hypot(dx, dy);
-    this.updatePhysics(shape, dx, dy, distance, depthMotion, deltaTime);
+    const flow = this.windTrail.flowAt(
+      baseX + shape.offsetX,
+      baseY + shape.offsetY,
+      time,
+    );
+    const force = this.getForce(dx, dy, distance, depthMotion, flow);
+    this.updatePhysics(shape, force.x, force.y, deltaTime);
 
     const x = baseX + shape.offsetX;
     const y = baseY + shape.offsetY;
@@ -521,7 +603,7 @@ class MeadowActivity implements Activity {
     const hue =
       themeColors.hueMin +
       shape.hueVariant * (themeColors.hueMax - themeColors.hueMin);
-    const depthOpacity = [0.48, 0.68, 0.9][shape.depth];
+    const depthOpacity = [0.48, 0.68, 0.9][shape.depth] * this.getFlicker(shape, time);
     this.drawParticle(x, y, radius, hue, themeColors.saturation, depthOpacity);
     this.drawRipple(
       shape,
@@ -534,39 +616,42 @@ class MeadowActivity implements Activity {
     );
   }
 
+  private getFlicker(shape: FloatingShape, time: number): number {
+    if (
+      !this.twinkle ||
+      this.preset !== 'nightfall' ||
+      this.reducedMotion.matches
+    ) {
+      return 1;
+    }
+    const wave =
+      0.5 + 0.5 * Math.sin(time * 0.0011 * (0.6 + shape.drift) + shape.phase * 5);
+    return 0.25 + 0.75 * wave ** 3;
+  }
+
   private updatePhysics(
     shape: FloatingShape,
-    dx: number,
-    dy: number,
-    distance: number,
-    depthMotion: number,
+    forceX: number,
+    forceY: number,
     deltaTime: number,
   ): void {
     if (deltaTime <= 0) {
       return;
     }
 
-    const influence =
-      this.pointerInside && !this.reducedMotion.matches
-        ? Math.max(0, 1 - distance / 150) * 42 * depthMotion
-        : 0;
-    const directionX = distance > 0 ? dx / distance : 0;
-    const directionY = distance > 0 ? dy / distance : 0;
     shape.velocityX +=
-      (directionX * influence - shape.offsetX * 2.2 - shape.velocityX * 2.5) *
-      deltaTime;
+      (forceX - shape.offsetX * 2.2 - shape.velocityX * 2.5) * deltaTime;
     shape.velocityY +=
-      (directionY * influence - shape.offsetY * 2.2 - shape.velocityY * 2.5) *
-      deltaTime;
-    shape.velocityX = Math.max(-24, Math.min(24, shape.velocityX));
-    shape.velocityY = Math.max(-24, Math.min(24, shape.velocityY));
+      (forceY - shape.offsetY * 2.2 - shape.velocityY * 2.5) * deltaTime;
+    shape.velocityX = Math.max(-36, Math.min(36, shape.velocityX));
+    shape.velocityY = Math.max(-36, Math.min(36, shape.velocityY));
     shape.offsetX = Math.max(
-      -40,
-      Math.min(40, shape.offsetX + shape.velocityX * deltaTime),
+      -60,
+      Math.min(60, shape.offsetX + shape.velocityX * deltaTime),
     );
     shape.offsetY = Math.max(
-      -40,
-      Math.min(40, shape.offsetY + shape.velocityY * deltaTime),
+      -60,
+      Math.min(60, shape.offsetY + shape.velocityY * deltaTime),
     );
   }
 

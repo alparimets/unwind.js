@@ -1,3 +1,4 @@
+import type { AudioLayer } from './roomSettings';
 import type { ThemePreset } from './theme';
 
 export interface ActivityContext {
@@ -9,8 +10,12 @@ export interface ActivityContext {
 export interface ActivityAudio {
   readonly isEnabled: boolean;
   setPreset(preset: ThemePreset): void;
-  setLevel(layer: 'rain' | 'drone' | 'chimes', level: number): void;
+  setLevel(layer: AudioLayer, level: number): void;
   resumeFromGesture(): Promise<void>;
+  playSingingBowl(
+    noteIndex: number,
+    horizontalPosition?: number,
+  ): Promise<void>;
   playParticleTone(
     noteIndex: number,
     pointerSpeed: number,
@@ -21,6 +26,8 @@ export interface ActivityAudio {
 export interface Activity {
   start(): void;
   setPreset(preset: ThemePreset): void;
+  releaseThought(text: string): void;
+  setTwinkle(enabled: boolean): void;
   dispose(): void;
 }
 

@@ -1,12 +1,18 @@
 import { loadActivity, type ActivityId } from './core/activityRegistry';
-import type { ThemePreset } from './core/theme';
+import type { Activity } from './core/activity';
+import { themeForHour } from './core/atmosphere';
+import { isThemePreset, type ThemePreset } from './core/theme';
 import {
   AUDIO_LAYERS,
+  DEFAULT_ROOM_SETTINGS,
   parseRoomSettings,
   serializeRoomSettings,
   type AudioLayer,
+  type BinauralBeat,
+  type RoomSettings,
 } from './core/roomSettings';
 import { AmbientAudioEngine } from './audio/AmbientAudioEngine';
+import { setupMindfulness } from './ui/mindfulness';
 import './styles.css';
 
 const canvasElement = document.querySelector<HTMLCanvasElement>('#activity-canvas');
@@ -24,8 +30,12 @@ const shareButtonElement =
   document.querySelector<HTMLButtonElement>('#share-settings');
 const layerSliders =
   document.querySelectorAll<HTMLInputElement>('input[data-layer]');
+const beatSelectElement = document.querySelector<HTMLSelectElement>('#binaural-beat');
+const autoThemeElement = document.querySelector<HTMLButtonElement>('#auto-theme');
 
 if (
+  !beatSelectElement ||
+  !autoThemeElement ||
   !canvasElement ||
   !soundButtonElement ||
   !fullscreenButtonElement ||
@@ -48,33 +58,93 @@ const controlsToggle: HTMLButtonElement = controlsToggleElement;
 const controlDock: HTMLElement = controlDockElement;
 const timerDuration: HTMLSelectElement = timerDurationElement;
 const shareButton: HTMLButtonElement = shareButtonElement;
+const beatSelect: HTMLSelectElement = beatSelectElement;
+const autoThemeButton: HTMLButtonElement = autoThemeElement;
 
 const ambientAudio = new AmbientAudioEngine();
-const validThemes: ThemePreset[] = ['meadow', 'dusk', 'mist', 'nightfall'];
+let isApplyingSettings = false;
+let autoThemeInterval: number | undefined;
+let applyingAutoTheme = false;
+let activity: Activity | undefined;
 
-function syncRoomHash(): void {
+function currentTheme(): ThemePreset {
   const theme = document.documentElement.dataset.theme;
-  const levels: Record<AudioLayer, number> = {
-    rain: 0.32,
-    drone: 0.55,
-    chimes: 0.7,
-  };
+  return isThemePreset(theme) ? theme : DEFAULT_ROOM_SETTINGS.theme;
+}
+
+function readLevels(): Record<AudioLayer, number> {
+  const levels = { ...DEFAULT_ROOM_SETTINGS.levels };
   layerSliders.forEach((slider) => {
     const layer = slider.dataset.layer;
     if (layer && AUDIO_LAYERS.includes(layer as AudioLayer)) {
       levels[layer as AudioLayer] = Number(slider.value);
     }
   });
+  return levels;
+}
+
+function syncRoomHash(): void {
+  if (isApplyingSettings) {
+    return;
+  }
   const hash = serializeRoomSettings({
-    theme: validThemes.find((preset) => preset === theme) ?? 'meadow',
-    timer: timerDuration.value as '5' | '10' | '20' | '30',
-    levels,
+    theme: currentTheme(),
+    timer: timerDuration.value as RoomSettings['timer'],
+    levels: readLevels(),
+    beat: beatSelect.value as BinauralBeat,
+    autoTheme: autoThemeButton.getAttribute('aria-pressed') === 'true',
   });
   globalThis.history.replaceState(
     null,
     '',
     `${globalThis.location.pathname}${globalThis.location.search}${hash}`,
   );
+}
+
+function applyTimeOfDayTheme(): void {
+  const theme = themeForHour(new Date().getHours());
+  if (theme === currentTheme()) {
+    return;
+  }
+  applyingAutoTheme = true;
+  activity?.setPreset(theme);
+  applyingAutoTheme = false;
+}
+
+function setAutoTheme(enabled: boolean): void {
+  autoThemeButton.setAttribute('aria-pressed', String(enabled));
+  if (autoThemeInterval !== undefined) {
+    globalThis.clearInterval(autoThemeInterval);
+    autoThemeInterval = undefined;
+  }
+  if (enabled) {
+    applyTimeOfDayTheme();
+    autoThemeInterval = globalThis.setInterval(applyTimeOfDayTheme, 60_000);
+  }
+}
+
+function applySettings(settings: RoomSettings): void {
+  isApplyingSettings = true;
+  timerDuration.value = settings.timer;
+  timerDuration.dispatchEvent(new Event('change', { bubbles: true }));
+  layerSliders.forEach((slider) => {
+    const layer = slider.dataset.layer;
+    if (layer && AUDIO_LAYERS.includes(layer as AudioLayer)) {
+      const audioLayer = layer as AudioLayer;
+      slider.value = String(settings.levels[audioLayer]);
+      ambientAudio.setLevel(audioLayer, settings.levels[audioLayer]);
+    }
+  });
+  beatSelect.value = settings.beat;
+  ambientAudio.setBinauralBeat(Number(settings.beat));
+  if (settings.autoTheme) {
+    setAutoTheme(true);
+  } else {
+    setAutoTheme(false);
+    activity?.setPreset(settings.theme);
+  }
+  isApplyingSettings = false;
+  syncRoomHash();
 }
 
 function setStatus(message: string): void {
@@ -179,7 +249,22 @@ layerSliders.forEach((slider) => {
   });
 });
 
-document.addEventListener('unwind:themechange', syncRoomHash);
+document.addEventListener('unwind:themechange', () => {
+  if (!applyingAutoTheme && !isApplyingSettings) {
+    setAutoTheme(false);
+  }
+  syncRoomHash();
+});
+autoThemeButton.addEventListener('click', () => {
+  const enabled = autoThemeButton.getAttribute('aria-pressed') !== 'true';
+  setAutoTheme(enabled);
+  setStatus(enabled ? 'Matching the time of day.' : 'Time-of-day matching is off.');
+  syncRoomHash();
+});
+beatSelect.addEventListener('change', () => {
+  ambientAudio.setBinauralBeat(Number(beatSelect.value));
+  syncRoomHash();
+});
 shareButton.addEventListener('click', () => {
   if (!navigator.clipboard) {
     setStatus('Copying room links is not available in this browser context.');
@@ -219,7 +304,10 @@ document.addEventListener('keydown', (event: KeyboardEvent) => {
 
 const activityId: ActivityId = 'meadow';
 const roomState = parseRoomSettings(globalThis.location.hash);
-document.documentElement.dataset.theme = roomState.theme;
+const startupTheme = roomState.autoTheme
+  ? themeForHour(new Date().getHours())
+  : roomState.theme;
+document.documentElement.dataset.theme = startupTheme;
 timerDuration.value = roomState.timer;
 layerSliders.forEach((slider) => {
   const layer = slider.dataset.layer;
@@ -229,8 +317,10 @@ layerSliders.forEach((slider) => {
     ambientAudio.setLevel(audioLayer, roomState.levels[audioLayer]);
   }
 });
-ambientAudio.setPreset(roomState.theme);
-const activity = await loadActivity(activityId, {
+beatSelect.value = roomState.beat;
+ambientAudio.setBinauralBeat(Number(roomState.beat));
+ambientAudio.setPreset(startupTheme);
+const loadedActivity = await loadActivity(activityId, {
   canvas,
   audio: ambientAudio,
   onAudioError: (error) => {
@@ -241,9 +331,18 @@ const activity = await loadActivity(activityId, {
     );
   },
 });
-activity.setPreset(roomState.theme);
-activity.start();
-window.addEventListener('pagehide', () => activity.dispose(), { once: true });
+activity = loadedActivity;
+isApplyingSettings = true;
+loadedActivity.setPreset(startupTheme);
+setAutoTheme(roomState.autoTheme);
+isApplyingSettings = false;
+loadedActivity.start();
+setupMindfulness({
+  activity: loadedActivity,
+  ringBell: () => ambientAudio.playTempleBell(),
+  setStatus,
+});
+window.addEventListener('pagehide', () => loadedActivity.dispose(), { once: true });
 
 const manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
 if (import.meta.env.PROD && 'serviceWorker' in navigator && manifestLink) {
@@ -260,16 +359,5 @@ syncRoomHash();
 scheduleControlsHide();
 
 globalThis.addEventListener('hashchange', () => {
-  const settings = parseRoomSettings(globalThis.location.hash);
-  timerDuration.value = settings.timer;
-  timerDuration.dispatchEvent(new Event('change', { bubbles: true }));
-  layerSliders.forEach((slider) => {
-    const layer = slider.dataset.layer;
-    if (layer && AUDIO_LAYERS.includes(layer as AudioLayer)) {
-      const audioLayer = layer as AudioLayer;
-      slider.value = String(settings.levels[audioLayer]);
-      ambientAudio.setLevel(audioLayer, settings.levels[audioLayer]);
-    }
-  });
-  activity.setPreset(settings.theme);
+  applySettings(parseRoomSettings(globalThis.location.hash));
 });
