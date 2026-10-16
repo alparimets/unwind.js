@@ -60,6 +60,24 @@
   --eyebrow-color: #526975;
 }
 
+:root[data-theme="nightfall"] {
+  color: #dce8e6;
+  --sage: #8bd9c6;
+  --ink: #dce8e6;
+  --muted: #a4b4b6;
+  --surface: rgba(18, 28, 43, 0.72);
+  --page-background: #07101b;
+  --page-glow: rgba(27, 52, 67, 0.75);
+  --heading: #e1efec;
+  --experience-start: #07101b;
+  --experience-end: #0c1c2b;
+  --experience-glow: rgba(74, 196, 175, 0.18);
+  --experience-fullscreen: #07101b;
+  --selected-surface: rgba(66, 120, 119, 0.32);
+  --tool-border: rgba(160, 215, 205, 0.2);
+  --eyebrow-color: #a2e6d5;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -428,20 +446,6 @@ h1 {
     width: 100%;
     margin: 0 0 2px;
   }
-
-  .quiet-tools {
-    grid-template-columns: 1fr;
-  }
-
-  .tool-card {
-    min-height: 150px;
-    padding: 18px;
-  }
-
-  .theme-label {
-    width: 100%;
-    margin: 0 0 2px;
-  }
 }
 
 @supports (height: 1dvh) {
@@ -469,12 +473,369 @@ h1 {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
-
-  .breath-orb {
-    transition-duration: 0.01ms !important;
-  }
-
-  .breath-orb {
-    transition-duration: 0.01ms !important;
-  }
 }
+
+/* Full-viewport ambient room and floating controls. */
+body {
+  overflow: hidden;
+}
+
+.page-shell {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  padding: 0;
+  text-align: left;
+  pointer-events: none;
+}
+
+  .experience {
+    position: fixed;
+    z-index: 0;
+    inset: 0;
+    width: 100%;
+    height: 100vh;
+    min-height: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    pointer-events: auto;
+  }
+
+  @supports (height: 100dvh) {
+    .experience {
+      height: 100dvh;
+    }
+  }
+
+  .experience:fullscreen {
+    position: fixed;
+    inset: 0;
+  }
+
+  .page-shell:fullscreen {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    background: var(--page-background);
+  }
+
+  #activity-canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .meadow-caption {
+    right: 24px;
+    bottom: 24px;
+    opacity: 0.68;
+  }
+
+  .intro {
+    position: fixed;
+    z-index: 1;
+    top: max(24px, env(safe-area-inset-top));
+    left: max(28px, env(safe-area-inset-left));
+    margin: 0;
+    text-align: left;
+    pointer-events: none;
+    text-shadow: 0 1px 16px var(--page-background);
+  }
+
+  .intro .description {
+    margin-left: 0;
+  }
+
+  .control-button {
+    color: var(--ink);
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .control-button:hover {
+    color: var(--ink);
+    background: var(--surface);
+  }
+
+  .control-dock {
+    position: fixed;
+    z-index: 3;
+    right: max(18px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    left: max(18px, env(safe-area-inset-left));
+    max-height: min(58vh, 590px);
+    padding: 15px;
+    overflow: auto;
+    border: 1px solid var(--tool-border);
+    border-radius: 24px;
+    background: var(--surface);
+    box-shadow: 0 12px 48px rgba(19, 34, 29, 0.12);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition:
+      opacity 500ms ease,
+      transform 500ms ease,
+      visibility 500ms ease;
+    pointer-events: auto;
+  }
+
+  .control-dock.is-hidden {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(18px);
+    pointer-events: none;
+  }
+
+  .control-dock .controls {
+    justify-content: flex-start;
+    margin-top: 0;
+  }
+
+  .control-dock .theme-controls {
+    justify-content: flex-start;
+    margin-top: 0;
+  }
+
+  .controls-toggle {
+    position: fixed;
+    z-index: 4;
+    top: max(18px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
+    min-height: 44px;
+    pointer-events: auto;
+  }
+
+  .room-settings {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.3fr);
+    align-items: stretch;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .room-panel,
+  .tool-card {
+    border-color: var(--tool-border);
+    background: var(--surface);
+    box-shadow: none;
+  }
+
+  .theme-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--tool-border);
+    border-radius: 18px;
+  }
+
+  .theme-button,
+  .quiet-button,
+  .theme-label,
+  .tool-card h2,
+  .tool-eyebrow,
+  .tool-description,
+  .session-time {
+    color: var(--ink);
+  }
+
+  .theme-button,
+  .quiet-button,
+  .pattern-control select {
+    background-color: var(--surface);
+  }
+
+  .mixer {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(90px, 1fr));
+    gap: 12px;
+  }
+
+  .mixer-control,
+  .pattern-control {
+    display: grid;
+    gap: 5px;
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+
+  .mixer-control input {
+    width: 100%;
+    accent-color: var(--sage);
+  }
+
+  .quiet-tools {
+    grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+    gap: 12px;
+    margin: 0;
+  }
+
+  .tool-card {
+    min-height: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--tool-border);
+    border-radius: 18px;
+  }
+
+  .breathing-card {
+    align-items: center;
+  }
+
+  .pattern-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 7px 0;
+  }
+
+  .pattern-control select {
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--tool-border);
+    border-radius: 999px;
+    color: var(--ink);
+    font: inherit;
+  }
+
+  .tool-description {
+    margin: 5px 0 8px;
+  }
+
+  .breathing-card .control-button {
+    min-height: 44px;
+  }
+
+  .breath-orb-wrap {
+    flex: 0 0 72px;
+    width: 72px;
+    height: 72px;
+  }
+
+  .breath-orb {
+    width: 36px;
+    height: 36px;
+  }
+
+  .session-time {
+    margin: 5px 0;
+  }
+
+  .timer-controls {
+    margin-top: 4px;
+  }
+
+  .status {
+    margin: 10px 4px 0;
+    pointer-events: none;
+  }
+
+  .keyboard-hint {
+    position: fixed;
+    z-index: 1;
+    top: 80px;
+    right: 25px;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  :root[data-theme="nightfall"] .experience {
+    background:
+      radial-gradient(ellipse at 50% 78%, rgba(36, 105, 114, 0.24), transparent 55%),
+      linear-gradient(145deg, #050a13, #0a1724);
+  }
+
+  :root[data-theme="dusk"] .experience {
+    box-shadow: none;
+  }
+
+  @media (max-width: 900px) {
+    .room-settings,
+    .quiet-tools {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .intro {
+      top: max(18px, env(safe-area-inset-top));
+      left: max(18px, env(safe-area-inset-left));
+      max-width: min(62vw, 430px);
+    }
+
+    :root[data-theme="dusk"] .intro {
+      --heading: #f3edf7;
+      --eyebrow-color: #e8c892;
+      --muted: #d6d1df;
+    }
+
+    .intro .eyebrow {
+      margin-bottom: 6px;
+    }
+
+    .intro h1 {
+      font-size: clamp(2rem, 8vw, 3rem);
+    }
+
+    .intro .description {
+      max-width: 300px;
+      margin-top: 7px;
+      font-size: 0.84rem;
+    }
+
+    .control-dock {
+      right: max(10px, env(safe-area-inset-right));
+      bottom: max(10px, env(safe-area-inset-bottom));
+      left: max(10px, env(safe-area-inset-left));
+      max-height: 64vh;
+      max-height: 64dvh;
+      padding: 11px;
+      border-radius: 20px;
+    }
+
+    .room-settings,
+    .quiet-tools {
+      grid-template-columns: 1fr;
+    }
+
+    .mixer {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+
+    .mixer-control {
+      grid-template-columns: 110px 1fr;
+      align-items: center;
+    }
+
+    .theme-controls {
+      gap: 6px;
+    }
+
+    .theme-button {
+      min-height: 44px;
+      padding-inline: 11px;
+    }
+
+    .controls-toggle {
+      top: max(12px, env(safe-area-inset-top));
+      right: max(12px, env(safe-area-inset-right));
+    }
+
+    .status {
+      margin: 8px 4px 0;
+      max-width: 65vw;
+      font-size: 0.72rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .control-dock {
+      transition-duration: 0.01ms;
+    }
+
+    .breath-orb {
+      transition-duration: 0.01ms !important;
+    }
+  }

@@ -3,81 +3,126 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta
-      name="description"
-      content="A quiet little meadow for a slower moment."
-    />
+    <meta name="description" content="A quiet little ambient room for a slower moment." />
     <meta name="theme-color" content="#f2f4ed" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icon-192.png" />
     <title>unwind.js — a moment in the meadow</title>
   </head>
   <body>
     <main class="page-shell">
-      <header class="intro">
-        <p class="eyebrow">A LITTLE ROOM TO BREATHE</p>
-        <h1>Find your quiet.</h1>
-        <p class="description">
-          Let the meadow move at its own pace. Bring a little breeze with you.
-        </p>
-      </header>
-
-      <section class="experience" aria-label="Meadow activity">
-        <canvas
-          id="activity-canvas"
-          aria-hidden="true"
-          tabindex="-1"
-        ></canvas>
+      <section id="experience" class="experience" aria-label="Ambient room">
+        <canvas id="activity-canvas" aria-hidden="true" tabindex="-1"></canvas>
         <div class="meadow-caption" aria-hidden="true">
           <span class="caption-dot"></span>
           <span>A moment in the meadow</span>
         </div>
       </section>
 
-      <nav class="controls" aria-label="Activity controls">
-        <button id="sound-toggle" class="control-button" type="button" aria-pressed="false">
-          <span class="button-icon" aria-hidden="true">♪</span>
-          <span>Ambient sound</span>
-          <span class="toggle-state">Off</span>
-        </button>
-        <button id="fullscreen-toggle" class="control-button" type="button" aria-pressed="false">
-          <span class="button-icon" aria-hidden="true">⛶</span>
-          <span>Full screen</span>
-        </button>
-      </nav>
+      <header class="intro">
+        <p class="eyebrow">A LITTLE ROOM TO BREATHE</p>
+        <h1>Find your quiet.</h1>
+        <p class="description">
+          Let the room move at its own pace. Bring a little breeze with you.
+        </p>
+      </header>
 
-      <div class="theme-controls" role="group" aria-label="Color and sound preset">
-        <span class="theme-label">A little atmosphere</span>
-        <button class="theme-button" type="button" data-theme="meadow" aria-pressed="true">Meadow</button>
-        <button class="theme-button" type="button" data-theme="dusk" aria-pressed="false">Dusk</button>
-        <button class="theme-button" type="button" data-theme="mist" aria-pressed="false">Mist</button>
-      </div>
+      <button
+        id="controls-toggle"
+        class="control-button controls-toggle"
+        type="button"
+        aria-expanded="true"
+        aria-controls="control-dock"
+      >Hide controls</button>
 
-      <section class="quiet-tools" aria-label="Quiet time tools">
-        <article class="tool-card breathing-card">
-          <div class="tool-copy">
-            <p class="tool-eyebrow">A BREATHING MOMENT</p>
-            <h2>Take a slower breath.</h2>
-            <p id="breath-phase" class="tool-description" aria-live="polite">Ready when you are.</p>
-            <button id="breath-toggle" class="control-button" type="button" aria-pressed="false">Start breathing</button>
-          </div>
-          <div class="breath-orb-wrap" aria-hidden="true">
-            <div id="breath-orb" class="breath-orb"></div>
-          </div>
-        </article>
+      <section id="control-dock" class="control-dock" aria-label="Ambient room controls">
+        <nav class="controls" aria-label="Activity controls">
+          <button id="sound-toggle" class="control-button" type="button" aria-pressed="false">
+            <span class="button-icon" aria-hidden="true">♪</span>
+            <span>Ambient sound</span>
+            <span class="toggle-state">Off</span>
+          </button>
+          <button id="fullscreen-toggle" class="control-button" type="button" aria-pressed="false">
+            <span class="button-icon" aria-hidden="true">⛶</span>
+            <span>Full screen</span>
+          </button>
+          <button id="share-settings" class="control-button" type="button">
+            <span aria-hidden="true">↗</span>
+            <span>Copy room link</span>
+          </button>
+        </nav>
 
-        <article class="tool-card timer-card">
-          <p class="tool-eyebrow">YOUR QUIET TIME</p>
-          <h2>A little pause.</h2>
-          <output id="session-time" class="session-time" aria-live="off">00:00</output>
-          <div class="timer-controls">
-            <button id="timer-toggle" class="control-button" type="button">Start timer</button>
-            <button id="timer-reset" class="quiet-button" type="button">Reset</button>
+        <div class="room-settings">
+          <div class="room-panel theme-panel">
+            <div class="theme-controls" role="group" aria-label="Color and sound preset">
+              <span class="theme-label">Atmosphere</span>
+              <button class="theme-button" type="button" data-theme="meadow" aria-pressed="true">Meadow</button>
+              <button class="theme-button" type="button" data-theme="dusk" aria-pressed="false">Dusk</button>
+              <button class="theme-button" type="button" data-theme="mist" aria-pressed="false">Mist</button>
+              <button class="theme-button" type="button" data-theme="nightfall" aria-pressed="false">Nightfall</button>
+            </div>
+            <div class="mixer" role="group" aria-label="Ambient sound mixer">
+              <label class="mixer-control" for="rain-level">
+                <span>Rain &amp; wind</span>
+                <input id="rain-level" data-layer="rain" type="range" min="0" max="1" step="0.01" value="0.32" />
+              </label>
+              <label class="mixer-control" for="drone-level">
+                <span>Drone pad</span>
+                <input id="drone-level" data-layer="drone" type="range" min="0" max="1" step="0.01" value="0.55" />
+              </label>
+              <label class="mixer-control" for="chimes-level">
+                <span>Particle chimes</span>
+                <input id="chimes-level" data-layer="chimes" type="range" min="0" max="1" step="0.01" value="0.7" />
+              </label>
+            </div>
           </div>
-        </article>
+
+          <section class="quiet-tools" aria-label="Quiet time tools">
+            <article class="tool-card breathing-card">
+              <div class="tool-copy">
+                <p class="tool-eyebrow">A BREATHING MOMENT</p>
+                <h2>Take a slower breath.</h2>
+                <label class="pattern-control" for="breath-pattern">
+                  <span>Rhythm</span>
+                  <select id="breath-pattern">
+                    <option value="478">4-7-8 Relax</option>
+                    <option value="box">4-4-4-4 Box</option>
+                    <option value="calm">2-1-4 Calm</option>
+                  </select>
+                </label>
+                <p id="breath-phase" class="tool-description" aria-live="polite">Ready when you are.</p>
+                <button id="breath-toggle" class="control-button" type="button" aria-pressed="false">Start breathing</button>
+              </div>
+              <div class="breath-orb-wrap" aria-hidden="true">
+                <div id="breath-orb" class="breath-orb"></div>
+              </div>
+            </article>
+
+            <article class="tool-card timer-card">
+              <p class="tool-eyebrow">YOUR QUIET TIME</p>
+              <h2>A little pause.</h2>
+              <output id="session-time" class="session-time" aria-live="off">10:00</output>
+              <label class="pattern-control" for="timer-duration">
+                <span>Duration</span>
+                <select id="timer-duration">
+                  <option value="5">5 minutes</option>
+                  <option value="10" selected>10 minutes</option>
+                  <option value="20">20 minutes</option>
+                  <option value="30">30 minutes</option>
+                </select>
+              </label>
+              <div class="timer-controls">
+                <button id="timer-toggle" class="control-button" type="button">Start timer</button>
+                <button id="timer-reset" class="quiet-button" type="button">Reset</button>
+              </div>
+            </article>
+          </section>
+        </div>
+
+        <p id="activity-status" class="status" aria-live="polite">
+          Move your pointer gently to stir the air.
+        </p>
       </section>
-
-      <p id="activity-status" class="status" aria-live="polite">
-        Move your pointer gently to stir the air.
-      </p>
       <p class="keyboard-hint">Space: sound <span aria-hidden="true">·</span> F: full screen</p>
     </main>
     <script type="module" src="/src/main.ts"></script>
