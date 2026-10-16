@@ -31,3 +31,13 @@ Add an activity by implementing `Activity` and registering a dynamic import in `
 The GitHub Actions workflow in `.github/workflows/deploy.yml` builds the site and deploys it to GitHub Pages when changes are pushed to `main`. In the repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions**.
 
 The production build uses `/unwind.js/` as its base path for the project’s GitHub Pages URL. The app is stateless and requires no account, server, or database.
+
+## Code quality analysis
+
+SonarQube Cloud analyzes pushes to `main` and pull requests targeting `main` through `.github/workflows/sonar.yml`. To enable analysis:
+
+1. Create a project for this repository in SonarQube Cloud and generate an analysis token.
+2. Add the token as the `SONAR_TOKEN` Actions secret in the GitHub repository.
+3. Add the `SONAR_ORGANIZATION` and `SONAR_PROJECT_KEY` Actions variables using the values shown for the SonarQube Cloud project.
+
+Analysis results and quality-gate reports are available in the SonarQube Cloud project. Fork pull requests do not receive repository secrets, so their analysis cannot authenticate unless a separate secure setup is provided.
