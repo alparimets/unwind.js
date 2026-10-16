@@ -56,6 +56,7 @@ class MeadowActivity implements Activity {
   private pointerSpeed = 0;
   private previousPointerTime = 0;
   private previousFrameTime = 0;
+  private resizeObserver: ResizeObserver | undefined;
   private preset: ThemePreset = 'meadow';
   private readonly breathPhases = [
     { label: 'Breathe in', duration: 4000, scale: 1.14 },
@@ -106,8 +107,13 @@ class MeadowActivity implements Activity {
     });
     this.updateSessionTime();
     globalThis.addEventListener('resize', this.resize);
+    globalThis.visualViewport?.addEventListener('resize', this.resize);
+    this.resizeObserver = new ResizeObserver(this.resize);
+    this.resizeObserver.observe(this.canvas);
     this.canvas.addEventListener('pointermove', this.onPointerMove);
     this.canvas.addEventListener('pointerdown', this.onPointerDown);
+    this.canvas.addEventListener('pointerup', this.onPointerEnd);
+    this.canvas.addEventListener('pointercancel', this.onPointerEnd);
     this.canvas.addEventListener('pointerleave', this.onPointerLeave);
     this.frameId = requestAnimationFrame(this.draw);
   }
@@ -125,8 +131,12 @@ class MeadowActivity implements Activity {
       button.removeEventListener('click', this.onThemeSelection);
     });
     globalThis.removeEventListener('resize', this.resize);
+    globalThis.visualViewport?.removeEventListener('resize', this.resize);
+    this.resizeObserver?.disconnect();
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
+    this.canvas.removeEventListener('pointerup', this.onPointerEnd);
+    this.canvas.removeEventListener('pointercancel', this.onPointerEnd);
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
   }
 
@@ -270,20 +280,41 @@ class MeadowActivity implements Activity {
   private readonly resize = (): void => {
     const bounds = this.canvas.getBoundingClientRect();
     const pixelRatio = Math.min(globalThis.devicePixelRatio || 1, 2);
+    const previousWidth = this.width;
+    const previousHeight = this.height;
+    const sizeChanged = bounds.width !== previousWidth || bounds.height !== previousHeight;
     this.width = bounds.width;
     this.height = bounds.height;
-    this.canvas.width = Math.round(this.width * pixelRatio);
-    this.canvas.height = Math.round(this.height * pixelRatio);
+    const canvasWidth = Math.round(this.width * pixelRatio);
+    const canvasHeight = Math.round(this.height * pixelRatio);
+    if (this.canvas.width !== canvasWidth || this.canvas.height !== canvasHeight) {
+      this.canvas.width = canvasWidth;
+      this.canvas.height = canvasHeight;
+    }
     this.context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     if (this.shapes.length > 0) {
-      this.createShapes();
+      if (sizeChanged && previousWidth > 0 && previousHeight > 0) {
+        this.shapes.forEach((shape) => {
+          shape.x *= this.width / previousWidth;
+          shape.y *= this.height / previousHeight;
+        });
+      }
+      this.resizeShapes();
     }
   };
 
   private createShapes(): void {
     this.shapes.length = 0;
-    const count = Math.max(18, Math.min(34, Math.round(this.width / 32)));
-    for (let index = 0; index < count; index += 1) {
+    this.resizeShapes();
+  }
+
+  private resizeShapes(): void {
+    const maxCount = globalThis.matchMedia('(max-width: 767px)').matches ? 28 : 34;
+    const count = Math.max(18, Math.min(maxCount, Math.round(this.width / 32)));
+    while (this.shapes.length > count) {
+      this.shapes.pop();
+    }
+    while (this.shapes.length < count) {
       this.shapes.push({
         x: randomUnit() * this.width,
         y: randomUnit() * this.height,
@@ -310,7 +341,11 @@ class MeadowActivity implements Activity {
     const bounds = this.canvas.getBoundingClientRect();
     this.pointerX = event.clientX - bounds.left;
     this.pointerY = event.clientY - bounds.top;
-    this.pointerInside = true;
+    this.pointerInside =
+      this.pointerX >= 0 &&
+      this.pointerY >= 0 &&
+      this.pointerX <= bounds.width &&
+      this.pointerY <= bounds.height;
     if (this.previousPointerTime > 0) {
       const elapsed = Math.max(event.timeStamp - this.previousPointerTime, 1);
       const distance = Math.hypot(
@@ -322,18 +357,22 @@ class MeadowActivity implements Activity {
     this.previousPointerX = this.pointerX;
     this.previousPointerY = this.pointerY;
     this.previousPointerTime = event.timeStamp;
-    void this.audio.resumeFromGesture().catch(this.onAudioError);
   };
 
   private readonly onPointerDown = (event: PointerEvent): void => {
     const bounds = this.canvas.getBoundingClientRect();
     const x = event.clientX - bounds.left;
     const y = event.clientY - bounds.top;
+    this.pointerX = x;
+    this.pointerY = y;
+    this.pointerInside = x >= 0 && y >= 0 && x <= bounds.width && y <= bounds.height;
+    void this.audio.resumeFromGesture().catch(this.onAudioError);
     const shape = [...this.shapes].reverse().find((candidate) => {
       const radius = candidate.radius * DEPTH_SCALE[candidate.depth];
       return Math.hypot(candidate.renderX - x, candidate.renderY - y) <= radius;
     });
     if (shape) {
+      shape.isHovered = true;
       shape.rippleStartedAt = this.reducedMotion.matches
         ? undefined
         : event.timeStamp;
@@ -341,6 +380,19 @@ class MeadowActivity implements Activity {
         .playParticleTone(shape.noteIndex, this.pointerSpeed)
         .catch(this.onAudioError);
     }
+  };
+
+  private readonly onPointerEnd = (event: PointerEvent): void => {
+    if (event.type !== 'pointercancel' && event.pointerType !== 'touch') {
+      return;
+    }
+
+    this.pointerInside = false;
+    this.pointerSpeed = 0;
+    this.previousPointerTime = 0;
+    this.shapes.forEach((shape) => {
+      shape.isHovered = false;
+    });
   };
 
   private readonly onPointerLeave = (): void => {
