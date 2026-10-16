@@ -1,1 +1,1 @@
-export type ThemePreset = 'meadow' | 'dusk' | 'mist';
+export type ThemePreset = 'meadow' | 'dusk' | 'mist' | 'nightfall';

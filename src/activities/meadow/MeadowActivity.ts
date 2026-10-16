@@ -26,11 +26,12 @@ const DEPTH_MOTION = [0.35, 0.65, 1];
 const RIPPLE_DURATION = 1.1;
 const THEME_COLORS: Record<
   ThemePreset,
-  { hueMin: number; hueMax: number; saturation: number }
+  { hueMin: number; hueMax: number; saturation: number; lightness: number }
 > = {
-  meadow: { hueMin: 80, hueMax: 150, saturation: 42 },
-  dusk: { hueMin: 32, hueMax: 48, saturation: 58 },
-  mist: { hueMin: 188, hueMax: 208, saturation: 22 },
+  meadow: { hueMin: 80, hueMax: 150, saturation: 42, lightness: 78 },
+  dusk: { hueMin: 32, hueMax: 48, saturation: 58, lightness: 78 },
+  mist: { hueMin: 188, hueMax: 208, saturation: 22, lightness: 78 },
+  nightfall: { hueMin: 158, hueMax: 205, saturation: 76, lightness: 69 },
 };
 
 function randomUnit(): number {
@@ -58,7 +59,7 @@ class MeadowActivity implements Activity {
   private previousFrameTime = 0;
   private resizeObserver: ResizeObserver | undefined;
   private preset: ThemePreset = 'meadow';
-  private readonly breathPhases = [
+  private breathPhases = [
     { label: 'Breathe in', duration: 4000, scale: 1.14 },
     { label: 'Hold gently', duration: 7000, scale: 1.14 },
     { label: 'Breathe out', duration: 8000, scale: 0.76 },
@@ -72,6 +73,8 @@ class MeadowActivity implements Activity {
     document.querySelector<HTMLElement>('#breath-orb');
   private readonly breathPhase =
     document.querySelector<HTMLElement>('#breath-phase');
+  private readonly breathPattern =
+    document.querySelector<HTMLSelectElement>('#breath-pattern');
   private readonly timerToggle =
     document.querySelector<HTMLButtonElement>('#timer-toggle');
   private readonly timerReset =
@@ -81,7 +84,7 @@ class MeadowActivity implements Activity {
   private readonly themeButtons =
     document.querySelectorAll<HTMLButtonElement>('.theme-button[data-theme]');
   private timerStartedAt: number | undefined;
-  private elapsedBeforeStart = 0;
+  private remainingBeforeStart = 600_000;
   private timerInterval: number | undefined;
 
   constructor(
@@ -99,7 +102,10 @@ class MeadowActivity implements Activity {
   start(): void {
     this.resize();
     this.createShapes();
+    this.remainingBeforeStart = this.getTimerDuration();
     this.breathToggle?.addEventListener('click', this.toggleBreathing);
+    this.breathPattern?.addEventListener('change', this.onBreathPatternChange);
+    this.timerDuration?.addEventListener('change', this.onTimerDurationChange);
     this.timerToggle?.addEventListener('click', this.toggleTimer);
     this.timerReset?.addEventListener('click', this.resetTimer);
     this.themeButtons.forEach((button) => {
@@ -125,6 +131,8 @@ class MeadowActivity implements Activity {
       globalThis.clearInterval(this.timerInterval);
     }
     this.breathToggle?.removeEventListener('click', this.toggleBreathing);
+    this.breathPattern?.removeEventListener('change', this.onBreathPatternChange);
+    this.timerDuration?.removeEventListener('change', this.onTimerDurationChange);
     this.timerToggle?.removeEventListener('click', this.toggleTimer);
     this.timerReset?.removeEventListener('click', this.resetTimer);
     this.themeButtons.forEach((button) => {
@@ -147,14 +155,52 @@ class MeadowActivity implements Activity {
     this.themeButtons.forEach((button) => {
       button.setAttribute('aria-pressed', String(button.dataset.theme === preset));
     });
+    document.dispatchEvent(new CustomEvent('unwind:themechange', { detail: preset }));
   }
 
   private readonly onThemeSelection = (event: MouseEvent): void => {
     const preset = (event.currentTarget as HTMLButtonElement).dataset.theme;
-    if (preset === 'meadow' || preset === 'dusk' || preset === 'mist') {
+    if (
+      preset === 'meadow' ||
+      preset === 'dusk' ||
+      preset === 'mist' ||
+      preset === 'nightfall'
+    ) {
       this.setPreset(preset);
     }
   };
+
+  private readonly onBreathPatternChange = (): void => {
+    this.breathPhases = this.getBreathPhases();
+    if (this.breathStart !== undefined) {
+      this.breathStart = performance.now();
+      this.breathPhaseIndex = -1;
+    }
+  };
+
+  private getBreathPhases(): typeof this.breathPhases {
+    switch (this.breathPattern?.value) {
+      case 'box':
+        return [
+          { label: 'Breathe in', duration: 4000, scale: 1.14 },
+          { label: 'Hold gently', duration: 4000, scale: 1.14 },
+          { label: 'Breathe out', duration: 4000, scale: 0.76 },
+          { label: 'Rest softly', duration: 4000, scale: 0.76 },
+        ];
+      case 'calm':
+        return [
+          { label: 'Breathe in', duration: 2000, scale: 1.14 },
+          { label: 'Pause gently', duration: 1000, scale: 1.14 },
+          { label: 'Breathe out', duration: 4000, scale: 0.76 },
+        ];
+      default:
+        return [
+          { label: 'Breathe in', duration: 4000, scale: 1.14 },
+          { label: 'Hold gently', duration: 7000, scale: 1.14 },
+          { label: 'Breathe out', duration: 8000, scale: 0.76 },
+        ];
+    }
+  }
 
   private readonly toggleBreathing = (): void => {
     if (this.breathStart === undefined) {
@@ -219,6 +265,9 @@ class MeadowActivity implements Activity {
 
   private readonly toggleTimer = (): void => {
     if (this.timerStartedAt === undefined) {
+      if (this.remainingBeforeStart <= 0) {
+        this.remainingBeforeStart = this.getTimerDuration();
+      }
       this.timerStartedAt = performance.now();
       this.timerInterval = globalThis.setInterval(this.updateSessionTime, 1000);
       if (this.timerToggle) {
@@ -228,7 +277,10 @@ class MeadowActivity implements Activity {
       return;
     }
 
-    this.elapsedBeforeStart += performance.now() - this.timerStartedAt;
+    this.remainingBeforeStart = Math.max(
+      0,
+      this.remainingBeforeStart - (performance.now() - this.timerStartedAt),
+    );
     this.timerStartedAt = undefined;
     if (this.timerInterval !== undefined) {
       globalThis.clearInterval(this.timerInterval);
@@ -241,7 +293,7 @@ class MeadowActivity implements Activity {
   };
 
   private readonly resetTimer = (): void => {
-    this.elapsedBeforeStart = 0;
+    this.remainingBeforeStart = this.getTimerDuration();
     this.timerStartedAt = undefined;
     if (this.timerInterval !== undefined) {
       globalThis.clearInterval(this.timerInterval);
@@ -253,28 +305,54 @@ class MeadowActivity implements Activity {
     this.updateSessionTime();
   };
 
+  private readonly timerDuration =
+    document.querySelector<HTMLSelectElement>('#timer-duration');
+
+  private getTimerDuration(): number {
+    return Number(this.timerDuration?.value ?? 10) * 60_000;
+  }
+
+  private readonly onTimerDurationChange = (): void => {
+    if (this.timerInterval !== undefined) {
+      globalThis.clearInterval(this.timerInterval);
+      this.timerInterval = undefined;
+    }
+    this.timerStartedAt = undefined;
+    if (this.timerToggle) {
+      this.timerToggle.textContent = 'Start timer';
+    }
+    this.remainingBeforeStart = this.getTimerDuration();
+    this.updateSessionTime();
+  };
+
   private readonly updateSessionTime = (): void => {
     if (!this.sessionTime) {
       return;
     }
-    const elapsed =
-      this.elapsedBeforeStart +
-      (this.timerStartedAt === undefined
-        ? 0
-        : performance.now() - this.timerStartedAt);
-    const totalSeconds = Math.floor(elapsed / 1000);
+    const remaining =
+      this.timerStartedAt === undefined
+        ? this.remainingBeforeStart
+        : Math.max(
+            0,
+            this.remainingBeforeStart - (performance.now() - this.timerStartedAt),
+          );
+    const totalSeconds = Math.ceil(remaining / 1000);
     const minutes = Math.floor(totalSeconds / 60)
       .toString()
       .padStart(2, '0');
     const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-    const hours = Math.floor(totalSeconds / 3600);
-    const displayMinutes = (Math.floor(totalSeconds / 60) % 60)
-      .toString()
-      .padStart(2, '0');
-    this.sessionTime.textContent =
-      hours > 0
-        ? `${hours.toString().padStart(2, '0')}:${displayMinutes}:${seconds}`
-        : `${minutes}:${seconds}`;
+    this.sessionTime.textContent = `${minutes}:${seconds}`;
+    if (remaining <= 0 && this.timerStartedAt !== undefined) {
+      this.timerStartedAt = undefined;
+      this.remainingBeforeStart = 0;
+      if (this.timerInterval !== undefined) {
+        globalThis.clearInterval(this.timerInterval);
+        this.timerInterval = undefined;
+      }
+      if (this.timerToggle) {
+        this.timerToggle.textContent = 'Start timer';
+      }
+    }
   };
 
   private readonly resize = (): void => {
@@ -377,7 +455,11 @@ class MeadowActivity implements Activity {
         ? undefined
         : event.timeStamp;
       void this.audio
-        .playParticleTone(shape.noteIndex, this.pointerSpeed)
+        .playParticleTone(
+          shape.noteIndex,
+          this.pointerSpeed,
+          shape.renderX / Math.max(this.width, 1),
+        )
         .catch(this.onAudioError);
     }
   };
@@ -462,7 +544,11 @@ class MeadowActivity implements Activity {
       if (isHovered && !shape.isHovered) {
         shape.rippleStartedAt = this.reducedMotion.matches ? undefined : time;
         void this.audio
-          .playParticleTone(shape.noteIndex, this.pointerSpeed)
+          .playParticleTone(
+            shape.noteIndex,
+            this.pointerSpeed,
+            shape.renderX / Math.max(this.width, 1),
+          )
           .catch(this.onAudioError);
       }
       shape.isHovered = isHovered;
@@ -490,6 +576,12 @@ class MeadowActivity implements Activity {
       context.beginPath();
       context.arc(x, y, radius, 0, Math.PI * 2);
       context.fill();
+      if (this.preset === 'nightfall') {
+        context.beginPath();
+        context.arc(x, y, Math.max(1, radius * 0.08), 0, Math.PI * 2);
+        context.fillStyle = `hsla(${hue}, 92%, 88%, ${0.72 * depthOpacity})`;
+        context.fill();
+      }
 
       if (shape.rippleStartedAt !== undefined) {
         const age = (time - shape.rippleStartedAt) / 1000;

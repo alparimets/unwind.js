@@ -9,8 +9,13 @@ export interface ActivityContext {
 export interface ActivityAudio {
   readonly isEnabled: boolean;
   setPreset(preset: ThemePreset): void;
+  setLevel(layer: 'rain' | 'drone' | 'chimes', level: number): void;
   resumeFromGesture(): Promise<void>;
-  playParticleTone(noteIndex: number, pointerSpeed: number): Promise<void>;
+  playParticleTone(
+    noteIndex: number,
+    pointerSpeed: number,
+    horizontalPosition?: number,
+  ): Promise<void>;
 }
 
 export interface Activity {
