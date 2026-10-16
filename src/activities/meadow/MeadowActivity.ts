@@ -1,6 +1,6 @@
 import type { Activity, ActivityAudio, ActivityContext } from '../../core/activity';
 import { randomUnit } from '../../core/random';
-import { isThemePreset, type ThemePreset } from '../../core/theme';
+import { isDarkTheme, isThemePreset, type ThemePreset } from '../../core/theme';
 import { drawConstellations } from './constellations';
 import { sampleTextPoints, ThoughtCloud } from './thoughtCloud';
 import { WindTrail } from './windTrail';
@@ -28,22 +28,24 @@ const MAX_POINTER_SPEED = 1.5;
 const DEPTH_SCALE = [0.55, 0.78, 1];
 const DEPTH_MOTION = [0.35, 0.65, 1];
 const RIPPLE_DURATION = 1.1;
-const THEME_COLORS: Record<
-  ThemePreset,
-  {
-    hueMin: number;
-    hueMax: number;
-    saturation: number;
-    lightness: number;
-    isDark: boolean;
-  }
-> = {
-  dawn: { hueMin: 342, hueMax: 395, saturation: 62, lightness: 80, isDark: false },
-  meadow: { hueMin: 80, hueMax: 150, saturation: 42, lightness: 78, isDark: false },
-  dusk: { hueMin: 32, hueMax: 48, saturation: 58, lightness: 78, isDark: true },
-  mist: { hueMin: 188, hueMax: 208, saturation: 22, lightness: 78, isDark: false },
-  nightfall: { hueMin: 158, hueMax: 205, saturation: 76, lightness: 69, isDark: true },
+interface ThemeColors {
+  hueMin: number;
+  hueMax: number;
+  saturation: number;
+  glow: number;
+}
+
+const THEME_COLORS: Record<ThemePreset, ThemeColors> = {
+  dawn: { hueMin: 342, hueMax: 395, saturation: 62, glow: 0 },
+  meadow: { hueMin: 80, hueMax: 150, saturation: 42, glow: 0 },
+  dusk: { hueMin: 32, hueMax: 48, saturation: 58, glow: 0 },
+  mist: { hueMin: 188, hueMax: 208, saturation: 22, glow: 0 },
+  nightfall: { hueMin: 158, hueMax: 205, saturation: 76, glow: 1 },
+  forest: { hueMin: 105, hueMax: 160, saturation: 48, glow: 0.8 },
+  cosmos: { hueMin: 240, hueMax: 290, saturation: 62, glow: 1 },
+  obsidian: { hueMin: 205, hueMax: 250, saturation: 14, glow: 0.6 },
 };
+const COLOR_TRANSITION_RATE = 3;
 
 class MeadowActivity implements Activity {
   private readonly context: CanvasRenderingContext2D;
@@ -68,6 +70,7 @@ class MeadowActivity implements Activity {
   private isDragging = false;
   private twinkle = false;
   private preset: ThemePreset = 'meadow';
+  private readonly colors: ThemeColors = { ...THEME_COLORS.meadow };
   private breathPhases = [
     { label: 'Breathe in', duration: 4000, scale: 1.14 },
     { label: 'Hold gently', duration: 7000, scale: 1.14 },
@@ -159,6 +162,9 @@ class MeadowActivity implements Activity {
 
   setPreset(preset: ThemePreset): void {
     this.preset = preset;
+    if (this.frameId === 0) {
+      Object.assign(this.colors, THEME_COLORS[preset]);
+    }
     this.audio.setPreset(preset);
     document.documentElement.dataset.theme = preset;
     this.themeButtons.forEach((button) => {
@@ -522,15 +528,28 @@ class MeadowActivity implements Activity {
       : 0;
     this.previousFrameTime = time;
     this.pointerSpeed *= Math.exp(-deltaTime * 2);
+    this.blendColors(deltaTime);
     this.context.clearRect(0, 0, this.width, this.height);
     this.shapes.forEach((shape) => this.drawShape(shape, time, deltaTime));
     this.drawOverlays(time);
     this.frameId = requestAnimationFrame(this.draw);
   };
 
+  private blendColors(deltaTime: number): void {
+    const target = THEME_COLORS[this.preset];
+    const amount = this.reducedMotion.matches
+      ? 1
+      : 1 - Math.exp(-deltaTime * COLOR_TRANSITION_RATE);
+    const current = this.colors;
+    current.hueMin += (target.hueMin - current.hueMin) * amount;
+    current.hueMax += (target.hueMax - current.hueMax) * amount;
+    current.saturation += (target.saturation - current.saturation) * amount;
+    current.glow += (target.glow - current.glow) * amount;
+  }
+
   private drawOverlays(time: number): void {
-    const themeColors = THEME_COLORS[this.preset];
-    const hue = (themeColors.hueMin + themeColors.hueMax) / 2;
+    const hue = (this.colors.hueMin + this.colors.hueMax) / 2;
+    const isDark = isDarkTheme(this.preset);
     drawConstellations(
       this.context,
       this.shapes.map((shape) => ({
@@ -541,16 +560,16 @@ class MeadowActivity implements Activity {
       {
         time,
         hue,
-        isDark: themeColors.isDark,
+        isDark,
         isStatic: this.reducedMotion.matches,
       },
     );
     if (this.reducedMotion.matches) {
       this.windTrail.clear();
     } else {
-      this.windTrail.draw(this.context, time, themeColors.isDark);
+      this.windTrail.draw(this.context, time, isDark);
     }
-    this.thoughtCloud.draw(this.context, time, themeColors.isDark);
+    this.thoughtCloud.draw(this.context, time, isDark);
   }
 
   private getForce(
@@ -603,7 +622,7 @@ class MeadowActivity implements Activity {
     shape.renderY = y;
     this.updateHover(shape, x, y, radius, time);
 
-    const themeColors = THEME_COLORS[this.preset];
+    const themeColors = this.colors;
     const hue =
       themeColors.hueMin +
       shape.hueVariant * (themeColors.hueMax - themeColors.hueMin);
@@ -708,10 +727,12 @@ class MeadowActivity implements Activity {
     this.context.arc(x, y, radius, 0, Math.PI * 2);
     this.context.fill();
 
-    if (this.preset === 'nightfall') {
+    if (this.colors.glow > 0.02) {
       this.context.beginPath();
       this.context.arc(x, y, Math.max(1, radius * 0.08), 0, Math.PI * 2);
-      this.context.fillStyle = `hsla(${hue}, 92%, 88%, ${0.72 * depthOpacity})`;
+      this.context.fillStyle = `hsla(${hue}, 92%, 88%, ${
+        0.72 * depthOpacity * this.colors.glow
+      })`;
       this.context.fill();
     }
   }

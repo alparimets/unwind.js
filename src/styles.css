@@ -1,3 +1,37 @@
+@property --sage { syntax: "<color>"; inherits: true; initial-value: #718878; }
+@property --ink { syntax: "<color>"; inherits: true; initial-value: #425247; }
+@property --muted { syntax: "<color>"; inherits: true; initial-value: #818d80; }
+@property --surface { syntax: "<color>"; inherits: true; initial-value: rgba(255, 255, 255, 0.58); }
+@property --page-background { syntax: "<color>"; inherits: true; initial-value: #f2f4ed; }
+@property --page-glow { syntax: "<color>"; inherits: true; initial-value: rgba(255, 255, 255, 0.72); }
+@property --heading { syntax: "<color>"; inherits: true; initial-value: #425348; }
+@property --experience-start { syntax: "<color>"; inherits: true; initial-value: #e8eee4; }
+@property --experience-end { syntax: "<color>"; inherits: true; initial-value: #e7eee7; }
+@property --experience-glow { syntax: "<color>"; inherits: true; initial-value: rgba(195, 211, 185, 0.5); }
+@property --experience-fullscreen { syntax: "<color>"; inherits: true; initial-value: #e9eee5; }
+@property --selected-surface { syntax: "<color>"; inherits: true; initial-value: #e4ebe1; }
+@property --tool-border { syntax: "<color>"; inherits: true; initial-value: rgba(129, 147, 126, 0.16); }
+@property --eyebrow-color { syntax: "<color>"; inherits: true; initial-value: #526b5b; }
+
+:root {
+  transition:
+    color 0.9s ease,
+    --sage 0.9s ease,
+    --ink 0.9s ease,
+    --muted 0.9s ease,
+    --surface 0.9s ease,
+    --page-background 0.9s ease,
+    --page-glow 0.9s ease,
+    --heading 0.9s ease,
+    --experience-start 0.9s ease,
+    --experience-end 0.9s ease,
+    --experience-glow 0.9s ease,
+    --experience-fullscreen 0.9s ease,
+    --selected-surface 0.9s ease,
+    --tool-border 0.9s ease,
+    --eyebrow-color 0.9s ease;
+}
+
 :root {
   font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
   color: #425247;
@@ -69,13 +103,67 @@
   --page-background: #07101b;
   --page-glow: rgba(27, 52, 67, 0.75);
   --heading: #e1efec;
-  --experience-start: #07101b;
-  --experience-end: #0c1c2b;
-  --experience-glow: rgba(74, 196, 175, 0.18);
+  --experience-start: #050a13;
+  --experience-end: #0a1724;
+  --experience-glow: rgba(36, 105, 114, 0.24);
   --experience-fullscreen: #07101b;
   --selected-surface: rgba(66, 120, 119, 0.32);
   --tool-border: rgba(160, 215, 205, 0.2);
   --eyebrow-color: #a2e6d5;
+}
+
+:root[data-theme="forest"] {
+  color: #dbe8d6;
+  --sage: #9bcf9b;
+  --ink: #dbe8d6;
+  --muted: #a3b49f;
+  --surface: rgba(16, 30, 22, 0.72);
+  --page-background: #08120c;
+  --page-glow: rgba(34, 66, 44, 0.7);
+  --heading: #e3efdd;
+  --experience-start: #07120b;
+  --experience-end: #0f2417;
+  --experience-glow: rgba(88, 150, 84, 0.22);
+  --experience-fullscreen: #07120b;
+  --selected-surface: rgba(86, 140, 92, 0.32);
+  --tool-border: rgba(165, 214, 160, 0.2);
+  --eyebrow-color: #b4e3a8;
+}
+
+:root[data-theme="cosmos"] {
+  color: #e4e0f4;
+  --sage: #b8a6f0;
+  --ink: #e4e0f4;
+  --muted: #aaa6c6;
+  --surface: rgba(24, 20, 48, 0.72);
+  --page-background: #0b0920;
+  --page-glow: rgba(60, 48, 120, 0.7);
+  --heading: #ece8fa;
+  --experience-start: #0a0820;
+  --experience-end: #1a1440;
+  --experience-glow: rgba(150, 120, 230, 0.22);
+  --experience-fullscreen: #0a0820;
+  --selected-surface: rgba(130, 108, 200, 0.32);
+  --tool-border: rgba(190, 170, 245, 0.22);
+  --eyebrow-color: #cdbdfa;
+}
+
+:root[data-theme="obsidian"] {
+  color: #d9dbe0;
+  --sage: #a5adbd;
+  --ink: #d9dbe0;
+  --muted: #8f94a0;
+  --surface: rgba(12, 12, 14, 0.78);
+  --page-background: #000;
+  --page-glow: rgba(24, 24, 30, 0.6);
+  --heading: #e6e8ec;
+  --experience-start: #000;
+  --experience-end: #000;
+  --experience-glow: rgba(70, 74, 90, 0.14);
+  --experience-fullscreen: #000;
+  --selected-surface: rgba(110, 116, 134, 0.3);
+  --tool-border: rgba(180, 186, 200, 0.18);
+  --eyebrow-color: #b9bfcd;
 }
 
 :root[data-theme="dawn"] {
@@ -791,12 +879,6 @@ body {
     right: 25px;
     margin: 0;
     pointer-events: none;
-  }
-
-  :root[data-theme="nightfall"] .experience {
-    background:
-      radial-gradient(ellipse at 50% 78%, rgba(36, 105, 114, 0.24), transparent 55%),
-      linear-gradient(145deg, #050a13, #0a1724);
   }
 
   :root[data-theme="dusk"] .experience {

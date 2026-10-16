@@ -1,7 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { themeForHour } from './atmosphere';
+import { initialTheme, themeForHour } from './atmosphere';
 import { msUntilNextHour } from './softHour';
-import { isThemePreset } from './theme';
+import { isDarkTheme, isThemePreset } from './theme';
+
+describe('initialTheme', () => {
+  it('honors an explicitly requested theme', () => {
+    expect(initialTheme('mist', true, 23)).toBe('mist');
+  });
+
+  it('defaults to a dark theme when the OS prefers dark', () => {
+    expect(initialTheme(undefined, true, 12)).toBe('nightfall');
+  });
+
+  it('defaults to a dark theme at night and meadow by day', () => {
+    expect(initialTheme(undefined, false, 23)).toBe('nightfall');
+    expect(initialTheme(undefined, false, 12)).toBe('meadow');
+    expect(initialTheme(undefined, false, 18)).toBe('meadow');
+  });
+});
+
+describe('isDarkTheme', () => {
+  it('classifies themes', () => {
+    expect(isDarkTheme('obsidian')).toBe(true);
+    expect(isDarkTheme('forest')).toBe(true);
+    expect(isDarkTheme('cosmos')).toBe(true);
+    expect(isDarkTheme('meadow')).toBe(false);
+    expect(isDarkTheme('dawn')).toBe(false);
+  });
+});
 
 describe('themeForHour', () => {
   it.each([
