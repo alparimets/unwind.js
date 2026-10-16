@@ -266,13 +266,13 @@ window.addEventListener('pagehide', () => activity.dispose(), { once: true });
 
 const manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
 if ('serviceWorker' in navigator && manifestLink) {
-  void navigator.serviceWorker
-    .register(new URL('sw.js', manifestLink.href))
-    .catch((error: unknown) => {
-      setStatus(
-        error instanceof Error ? error.message : 'Offline support could not be enabled.',
-      );
-    });
+  try {
+    await navigator.serviceWorker.register(new URL('sw.js', manifestLink.href));
+  } catch (error) {
+    setStatus(
+      error instanceof Error ? error.message : 'Offline support could not be enabled.',
+    );
+  }
 }
 
 syncRoomHash();

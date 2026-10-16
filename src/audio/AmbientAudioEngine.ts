@@ -199,8 +199,18 @@ export class AmbientAudioEngine implements ActivityAudio {
         audioContext.sampleRate,
       );
       const noise = noiseBuffer.getChannelData(0);
+      const randomValues = new Uint32Array(noise.length);
+      const randomChunkSize = 16_384;
+      for (let offset = 0; offset < randomValues.length; offset += randomChunkSize) {
+        crypto.getRandomValues(
+          randomValues.subarray(
+            offset,
+            Math.min(offset + randomChunkSize, randomValues.length),
+          ),
+        );
+      }
       for (let index = 0; index < noise.length; index += 1) {
-        noise[index] = Math.random() * 2 - 1;
+        noise[index] = (randomValues[index] / 0xffffffff) * 2 - 1;
       }
       const rain = audioContext.createBufferSource();
       const rainFilter = audioContext.createBiquadFilter();
