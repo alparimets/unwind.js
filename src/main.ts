@@ -180,9 +180,14 @@ function updateControlsVisibility(visible: boolean): void {
 }
 
 let autoHideTimer: number | undefined;
+let hiddenByUser = false;
 
 function scheduleControlsHide(): void {
-  if (globalThis.matchMedia('(hover: none)').matches || controlDock.inert) {
+  if (
+    hiddenByUser ||
+    globalThis.matchMedia('(hover: none)').matches ||
+    controlDock.inert
+  ) {
     return;
   }
   if (autoHideTimer !== undefined) {
@@ -196,7 +201,7 @@ function scheduleControlsHide(): void {
 }
 
 function showControlsFromMouse(): void {
-  if (globalThis.matchMedia('(hover: none)').matches) {
+  if (hiddenByUser || globalThis.matchMedia('(hover: none)').matches) {
     return;
   }
   updateControlsVisibility(true);
@@ -221,6 +226,10 @@ soundButton.addEventListener('click', () => void toggleSound());
 fullscreenButton.addEventListener('click', () => void toggleFullscreen());
 controlsToggle.addEventListener('click', () => {
   const shouldShow = controlDock.inert;
+  hiddenByUser = !shouldShow;
+  if (hiddenByUser && autoHideTimer !== undefined) {
+    globalThis.clearTimeout(autoHideTimer);
+  }
   updateControlsVisibility(shouldShow);
   if (shouldShow) {
     scheduleControlsHide();
