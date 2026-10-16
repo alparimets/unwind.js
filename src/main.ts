@@ -2,16 +2,28 @@ import { loadActivity, type ActivityId } from './core/activityRegistry';
 import { AmbientAudioController } from './audio/AmbientAudioController';
 import './styles.css';
 
-const canvas = document.querySelector<HTMLCanvasElement>('#activity-canvas');
-const soundButton = document.querySelector<HTMLButtonElement>('#sound-toggle');
-const fullscreenButton =
+const canvasElement = document.querySelector<HTMLCanvasElement>('#activity-canvas');
+const soundButtonElement = document.querySelector<HTMLButtonElement>('#sound-toggle');
+const fullscreenButtonElement =
   document.querySelector<HTMLButtonElement>('#fullscreen-toggle');
-const experience = document.querySelector<HTMLElement>('.experience');
-const status = document.querySelector<HTMLElement>('#activity-status');
+const experienceElement = document.querySelector<HTMLElement>('.experience');
+const statusElement = document.querySelector<HTMLElement>('#activity-status');
 
-if (!canvas || !soundButton || !fullscreenButton || !experience || !status) {
+if (
+  !canvasElement ||
+  !soundButtonElement ||
+  !fullscreenButtonElement ||
+  !experienceElement ||
+  !statusElement
+) {
   throw new Error('The activity page is missing a required interface element.');
 }
+
+const canvas: HTMLCanvasElement = canvasElement;
+const soundButton: HTMLButtonElement = soundButtonElement;
+const fullscreenButton: HTMLButtonElement = fullscreenButtonElement;
+const experience: HTMLElement = experienceElement;
+const status: HTMLElement = statusElement;
 
 const ambientAudio = new AmbientAudioController();
 
