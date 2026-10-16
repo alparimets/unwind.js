@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="meadow">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -43,6 +43,37 @@
           <span>Full screen</span>
         </button>
       </nav>
+
+      <div class="theme-controls" role="group" aria-label="Color and sound preset">
+        <span class="theme-label">A little atmosphere</span>
+        <button class="theme-button" type="button" data-theme="meadow" aria-pressed="true">Meadow</button>
+        <button class="theme-button" type="button" data-theme="dusk" aria-pressed="false">Dusk</button>
+        <button class="theme-button" type="button" data-theme="mist" aria-pressed="false">Mist</button>
+      </div>
+
+      <section class="quiet-tools" aria-label="Quiet time tools">
+        <article class="tool-card breathing-card">
+          <div class="tool-copy">
+            <p class="tool-eyebrow">A BREATHING MOMENT</p>
+            <h2>Take a slower breath.</h2>
+            <p id="breath-phase" class="tool-description" aria-live="polite">Ready when you are.</p>
+            <button id="breath-toggle" class="control-button" type="button" aria-pressed="false">Start breathing</button>
+          </div>
+          <div class="breath-orb-wrap" aria-hidden="true">
+            <div id="breath-orb" class="breath-orb"></div>
+          </div>
+        </article>
+
+        <article class="tool-card timer-card">
+          <p class="tool-eyebrow">YOUR QUIET TIME</p>
+          <h2>A little pause.</h2>
+          <output id="session-time" class="session-time" aria-live="off">00:00</output>
+          <div class="timer-controls">
+            <button id="timer-toggle" class="control-button" type="button">Start timer</button>
+            <button id="timer-reset" class="quiet-button" type="button">Reset</button>
+          </div>
+        </article>
+      </section>
 
       <p id="activity-status" class="status" aria-live="polite">
         Move your pointer gently to stir the air.

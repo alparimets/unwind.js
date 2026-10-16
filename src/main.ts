@@ -100,5 +100,6 @@ const activity = await loadActivity(activityId, {
     );
   },
 });
+activity.setPreset('meadow');
 activity.start();
 window.addEventListener('pagehide', () => activity.dispose(), { once: true });
