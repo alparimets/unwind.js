@@ -99,7 +99,9 @@ export class ThoughtCloud {
       const drift = Math.max(0, age - HOLD) / 1000;
       const alpha =
         Math.min(1, age / FADE_IN) * (1 - Math.max(0, age - HOLD) / DRIFT);
-      const x = mote.x + mote.vx * drift + Math.sin(drift * 1.2 + mote.sway) * 6 * drift;
+      const sway =
+        mote.vx === 0 ? 0 : Math.sin(drift * 1.2 + mote.sway) * 6 * drift;
+      const x = mote.x + mote.vx * drift + sway;
       const y = mote.y + mote.vy * drift;
       context.globalAlpha = Math.max(0, alpha) * 0.85;
       context.fillStyle = `rgb(${color})`;
