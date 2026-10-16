@@ -1,5 +1,13 @@
 export interface ActivityContext {
   canvas: HTMLCanvasElement;
+  audio: ActivityAudio;
+  onAudioError(error: unknown): void;
+}
+
+export interface ActivityAudio {
+  readonly isEnabled: boolean;
+  resumeFromGesture(): Promise<void>;
+  playParticleTone(noteIndex: number): Promise<void>;
 }
 
 export interface Activity {
