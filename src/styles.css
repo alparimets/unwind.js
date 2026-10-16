@@ -21,6 +21,7 @@
   --experience-fullscreen: #e9eee5;
   --selected-surface: #e4ebe1;
   --tool-border: rgba(129, 147, 126, 0.16);
+  --eyebrow-color: #526b5b;
 }
 
 :root[data-theme="dusk"] {
@@ -38,6 +39,7 @@
   --experience-fullscreen: #292940;
   --selected-surface: #e5dfeb;
   --tool-border: rgba(100, 91, 132, 0.2);
+  --eyebrow-color: #6e542c;
 }
 
 :root[data-theme="mist"] {
@@ -55,6 +57,7 @@
   --experience-fullscreen: #e5ebed;
   --selected-surface: #e1e8ea;
   --tool-border: rgba(111, 133, 143, 0.18);
+  --eyebrow-color: #526975;
 }
 
 * {
@@ -87,7 +90,7 @@ button {
 
 .eyebrow {
   margin: 0 0 12px;
-  color: var(--sage);
+  color: var(--eyebrow-color);
   font-size: 0.69rem;
   font-weight: 600;
   letter-spacing: 0.19em;
@@ -307,7 +310,7 @@ h1 {
 
 .tool-eyebrow {
   margin: 0 0 9px;
-  color: var(--sage);
+  color: var(--eyebrow-color);
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.15em;

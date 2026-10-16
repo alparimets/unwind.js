@@ -78,7 +78,7 @@ class MeadowActivity implements Activity {
   private readonly sessionTime =
     document.querySelector<HTMLOutputElement>('#session-time');
   private readonly themeButtons =
-    document.querySelectorAll<HTMLButtonElement>('[data-theme]');
+    document.querySelectorAll<HTMLButtonElement>('.theme-button[data-theme]');
   private timerStartedAt: number | undefined;
   private elapsedBeforeStart = 0;
   private timerInterval: number | undefined;

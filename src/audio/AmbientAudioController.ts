@@ -163,6 +163,14 @@ export class AmbientAudioController {
       oscillator.connect(gain);
       gain.connect(masterGain);
       oscillator.start();
+      const modulationOscillator = audioContext.createOscillator();
+      const modulationGain = audioContext.createGain();
+      modulationOscillator.type = 'sine';
+      modulationOscillator.frequency.value = 0.035 + index * 0.012;
+      modulationGain.gain.value = 0.35;
+      modulationOscillator.connect(modulationGain);
+      modulationGain.connect(oscillator.frequency);
+      modulationOscillator.start();
       this.droneOscillators.push(oscillator);
     }
 
