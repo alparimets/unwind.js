@@ -484,124 +484,180 @@ class MeadowActivity implements Activity {
   };
 
   private readonly draw = (time: number): void => {
-    const { context, width, height } = this;
     const deltaTime = this.previousFrameTime
       ? Math.min((time - this.previousFrameTime) / 1000, 0.05)
       : 0;
     this.previousFrameTime = time;
     this.pointerSpeed *= Math.exp(-deltaTime * 2);
-    context.clearRect(0, 0, width, height);
-
-    for (const shape of this.shapes) {
-      const drift = this.reducedMotion.matches ? 0 : shape.drift;
-      const depthMotion = DEPTH_MOTION[shape.depth];
-      const sizeScale = DEPTH_SCALE[shape.depth];
-      const radius = shape.radius * sizeScale;
-      const floatX =
-        Math.sin(time * 0.00022 * drift + shape.phase) * 13 * depthMotion;
-      const floatY =
-        Math.cos(time * 0.00018 * drift + shape.phase) * 11 * depthMotion;
-      const baseX = shape.x + floatX;
-      const baseY = shape.y + floatY;
-      const dx = baseX + shape.offsetX - this.pointerX;
-      const dy = baseY + shape.offsetY - this.pointerY;
-      const distance = Math.hypot(dx, dy);
-      const influence =
-        this.pointerInside && !this.reducedMotion.matches
-          ? Math.max(0, 1 - distance / 150) * 42 * depthMotion
-          : 0;
-
-      if (deltaTime > 0) {
-        shape.velocityX +=
-          ((distance > 0 ? (dx / distance) * influence : 0) -
-            shape.offsetX * 2.2 -
-            shape.velocityX * 2.5) *
-          deltaTime;
-        shape.velocityY +=
-          ((distance > 0 ? (dy / distance) * influence : 0) -
-            shape.offsetY * 2.2 -
-            shape.velocityY * 2.5) *
-          deltaTime;
-        shape.velocityX = Math.max(-24, Math.min(24, shape.velocityX));
-        shape.velocityY = Math.max(-24, Math.min(24, shape.velocityY));
-        shape.offsetX = Math.max(
-          -40,
-          Math.min(40, shape.offsetX + shape.velocityX * deltaTime),
-        );
-        shape.offsetY = Math.max(
-          -40,
-          Math.min(40, shape.offsetY + shape.velocityY * deltaTime),
-        );
-      }
-
-      const x = baseX + shape.offsetX;
-      const y = baseY + shape.offsetY;
-      shape.renderX = x;
-      shape.renderY = y;
-      const isHovered =
-        this.pointerInside &&
-        Math.hypot(x - this.pointerX, y - this.pointerY) <= radius;
-      if (isHovered && !shape.isHovered) {
-        shape.rippleStartedAt = this.reducedMotion.matches ? undefined : time;
-        void this.audio
-          .playParticleTone(
-            shape.noteIndex,
-            this.pointerSpeed,
-            shape.renderX / Math.max(this.width, 1),
-          )
-          .catch(this.onAudioError);
-      }
-      shape.isHovered = isHovered;
-
-      const themeColors = THEME_COLORS[this.preset];
-      const hue =
-        themeColors.hueMin +
-        shape.hueVariant * (themeColors.hueMax - themeColors.hueMin);
-      const saturation = themeColors.saturation;
-      const gradient = context.createRadialGradient(
-        x - radius * 0.25,
-        y - radius * 0.3,
-        1,
-        x,
-        y,
-        radius,
-      );
-      const depthOpacity = [0.48, 0.68, 0.9][shape.depth];
-      gradient.addColorStop(
-        0,
-        `hsla(${hue}, ${saturation}%, 78%, ${0.42 * depthOpacity})`,
-      );
-      gradient.addColorStop(1, `hsla(${hue}, ${saturation}%, 72%, 0)`);
-      context.fillStyle = gradient;
-      context.beginPath();
-      context.arc(x, y, radius, 0, Math.PI * 2);
-      context.fill();
-      if (this.preset === 'nightfall') {
-        context.beginPath();
-        context.arc(x, y, Math.max(1, radius * 0.08), 0, Math.PI * 2);
-        context.fillStyle = `hsla(${hue}, 92%, 88%, ${0.72 * depthOpacity})`;
-        context.fill();
-      }
-
-      if (shape.rippleStartedAt !== undefined) {
-        const age = (time - shape.rippleStartedAt) / 1000;
-        if (age >= RIPPLE_DURATION) {
-          shape.rippleStartedAt = undefined;
-        } else if (age >= 0) {
-          context.beginPath();
-          context.arc(x, y, radius * (0.72 + age * 1.2), 0, Math.PI * 2);
-          context.strokeStyle = `hsla(${hue}, ${saturation}%, 76%, ${
-            0.34 * (1 - age / RIPPLE_DURATION)
-          })`;
-          context.lineWidth = 1.5;
-          context.stroke();
-        }
-      }
-    }
-
+    this.context.clearRect(0, 0, this.width, this.height);
+    this.shapes.forEach((shape) => this.drawShape(shape, time, deltaTime));
     this.frameId = requestAnimationFrame(this.draw);
   };
-}
+
+  private drawShape(
+    shape: FloatingShape,
+    time: number,
+    deltaTime: number,
+  ): void {
+    const depthMotion = DEPTH_MOTION[shape.depth];
+    const radius = shape.radius * DEPTH_SCALE[shape.depth];
+    const drift = this.reducedMotion.matches ? 0 : shape.drift;
+    const baseX =
+      shape.x + Math.sin(time * 0.00022 * drift + shape.phase) * 13 * depthMotion;
+    const baseY =
+      shape.y + Math.cos(time * 0.00018 * drift + shape.phase) * 11 * depthMotion;
+    const dx = baseX + shape.offsetX - this.pointerX;
+    const dy = baseY + shape.offsetY - this.pointerY;
+    const distance = Math.hypot(dx, dy);
+    this.updatePhysics(shape, dx, dy, distance, depthMotion, deltaTime);
+
+    const x = baseX + shape.offsetX;
+    const y = baseY + shape.offsetY;
+    shape.renderX = x;
+    shape.renderY = y;
+    this.updateHover(shape, x, y, radius, time);
+
+    const themeColors = THEME_COLORS[this.preset];
+    const hue =
+      themeColors.hueMin +
+      shape.hueVariant * (themeColors.hueMax - themeColors.hueMin);
+    const depthOpacity = [0.48, 0.68, 0.9][shape.depth];
+    this.drawParticle(x, y, radius, hue, themeColors.saturation, depthOpacity);
+    this.drawRipple(
+      shape,
+      x,
+      y,
+      radius,
+      hue,
+      themeColors.saturation,
+      time,
+    );
+  }
+
+  private updatePhysics(
+    shape: FloatingShape,
+    dx: number,
+    dy: number,
+    distance: number,
+    depthMotion: number,
+    deltaTime: number,
+  ): void {
+    if (deltaTime <= 0) {
+      return;
+    }
+
+    const influence =
+      this.pointerInside && !this.reducedMotion.matches
+        ? Math.max(0, 1 - distance / 150) * 42 * depthMotion
+        : 0;
+    const directionX = distance > 0 ? dx / distance : 0;
+    const directionY = distance > 0 ? dy / distance : 0;
+    shape.velocityX +=
+      (directionX * influence - shape.offsetX * 2.2 - shape.velocityX * 2.5) *
+      deltaTime;
+    shape.velocityY +=
+      (directionY * influence - shape.offsetY * 2.2 - shape.velocityY * 2.5) *
+      deltaTime;
+    shape.velocityX = Math.max(-24, Math.min(24, shape.velocityX));
+    shape.velocityY = Math.max(-24, Math.min(24, shape.velocityY));
+    shape.offsetX = Math.max(
+      -40,
+      Math.min(40, shape.offsetX + shape.velocityX * deltaTime),
+    );
+    shape.offsetY = Math.max(
+      -40,
+      Math.min(40, shape.offsetY + shape.velocityY * deltaTime),
+    );
+  }
+
+  private updateHover(
+    shape: FloatingShape,
+    x: number,
+    y: number,
+    radius: number,
+    time: number,
+  ): void {
+    const isHovered =
+      this.pointerInside &&
+      Math.hypot(x - this.pointerX, y - this.pointerY) <= radius;
+    if (isHovered && !shape.isHovered) {
+      shape.rippleStartedAt = this.reducedMotion.matches ? undefined : time;
+      void this.audio
+        .playParticleTone(
+          shape.noteIndex,
+          this.pointerSpeed,
+          shape.renderX / Math.max(this.width, 1),
+        )
+        .catch(this.onAudioError);
+    }
+    shape.isHovered = isHovered;
+  }
+
+  private drawParticle(
+    x: number,
+    y: number,
+    radius: number,
+    hue: number,
+    saturation: number,
+    depthOpacity: number,
+  ): void {
+    const gradient = this.context.createRadialGradient(
+      x - radius * 0.25,
+      y - radius * 0.3,
+      1,
+      x,
+      y,
+      radius,
+    );
+    gradient.addColorStop(
+      0,
+      `hsla(${hue}, ${saturation}%, 78%, ${0.42 * depthOpacity})`,
+    );
+    gradient.addColorStop(1, `hsla(${hue}, ${saturation}%, 72%, 0)`);
+    this.context.fillStyle = gradient;
+    this.context.beginPath();
+    this.context.arc(x, y, radius, 0, Math.PI * 2);
+    this.context.fill();
+
+    if (this.preset === 'nightfall') {
+      this.context.beginPath();
+      this.context.arc(x, y, Math.max(1, radius * 0.08), 0, Math.PI * 2);
+      this.context.fillStyle = `hsla(${hue}, 92%, 88%, ${0.72 * depthOpacity})`;
+      this.context.fill();
+    }
+  }
+
+  private drawRipple(
+    shape: FloatingShape,
+    x: number,
+    y: number,
+    radius: number,
+    hue: number,
+    saturation: number,
+    time: number,
+  ): void {
+    if (shape.rippleStartedAt === undefined) {
+      return;
+    }
+
+    const age = (time - shape.rippleStartedAt) / 1000;
+    if (age >= RIPPLE_DURATION) {
+      shape.rippleStartedAt = undefined;
+      return;
+    }
+    if (age < 0) {
+      return;
+    }
+
+    this.context.beginPath();
+    this.context.arc(x, y, radius * (0.72 + age * 1.2), 0, Math.PI * 2);
+    this.context.strokeStyle = `hsla(${hue}, ${saturation}%, 76%, ${
+      0.34 * (1 - age / RIPPLE_DURATION)
+    })`;
+    this.context.lineWidth = 1.5;
+    this.context.stroke();
+  }
+};
 
 export function createActivity({
   canvas,
