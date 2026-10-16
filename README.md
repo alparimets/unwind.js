@@ -29,6 +29,8 @@ Add an activity by implementing `Activity` and registering a dynamic import in `
 - `npm run dev` starts the local development server.
 - `npm run build` type-checks and builds the production site into `dist/`.
 - `npm run preview` serves the production build locally.
+- `npm test -- --run` runs the unit tests once.
+- `npm run test:coverage` runs the tests and writes `coverage/lcov.info` for SonarQube Cloud.
 
 ## Deployment
 
@@ -46,7 +48,7 @@ The app remains stateless: shared settings live only in the URL, with no account
 
 ## Code quality analysis
 
-SonarQube Cloud analyzes pushes to `main` and pull requests targeting `main` through `.github/workflows/sonar.yml`. To enable analysis:
+SonarQube Cloud analyzes pushes to `main` and pull requests targeting `main` through `.github/workflows/sonar.yml`. The workflow runs the unit tests and uploads their LCOV coverage report as part of analysis. To enable analysis:
 
 1. Create a project for this repository in SonarQube Cloud and generate an analysis token.
 2. Add the token as the `SONAR_TOKEN` Actions secret in the GitHub repository.

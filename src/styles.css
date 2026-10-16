@@ -750,11 +750,24 @@ body {
     box-shadow: none;
   }
 
+  @media (max-width: 900px) {
+    .room-settings,
+    .quiet-tools {
+      grid-template-columns: 1fr;
+    }
+  }
+
   @media (max-width: 760px) {
     .intro {
       top: max(18px, env(safe-area-inset-top));
       left: max(18px, env(safe-area-inset-left));
       max-width: min(62vw, 430px);
+    }
+
+    :root[data-theme="dusk"] .intro {
+      --heading: #f3edf7;
+      --eyebrow-color: #e8c892;
+      --muted: #d6d1df;
     }
 
     .intro .eyebrow {

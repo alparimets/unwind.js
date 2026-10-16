@@ -3,16 +3,26 @@ const APP_ROOT = new URL('./', self.registration.scope);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) =>
-        cache.addAll([
+    fetch(new URL('precache-manifest.json', APP_ROOT))
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Could not load precache manifest: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((files) => {
+        if (!Array.isArray(files) || !files.every((file) => typeof file === 'string')) {
+          throw new Error('The precache manifest has an invalid format.');
+        }
+        const urls = [
           APP_ROOT.pathname,
           new URL('manifest.webmanifest', APP_ROOT).pathname,
           new URL('icon-192.png', APP_ROOT).pathname,
           new URL('icon-512.png', APP_ROOT).pathname,
-        ]),
-      )
+          ...files.map((file) => new URL(file, APP_ROOT).pathname),
+        ];
+        return caches.open(CACHE_NAME).then((cache) => cache.addAll(urls));
+      })
       .then(() => self.skipWaiting()),
   );
 });
@@ -44,9 +54,10 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
-            const copy = response.clone();
-            void caches.open(CACHE_NAME).then((cache) =>
-              cache.put(APP_ROOT.pathname, copy),
+            event.waitUntil(
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => cache.put(APP_ROOT.pathname, response.clone())),
             );
           }
           return response;
@@ -63,8 +74,11 @@ self.addEventListener('fetch', (event) => {
       }
       return fetch(event.request).then((response) => {
         if (response.ok) {
-          const copy = response.clone();
-          void caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          event.waitUntil(
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(event.request, response.clone())),
+          );
         }
         return response;
       });

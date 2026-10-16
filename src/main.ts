@@ -1,5 +1,11 @@
 import { loadActivity, type ActivityId } from './core/activityRegistry';
 import type { ThemePreset } from './core/theme';
+import {
+  AUDIO_LAYERS,
+  parseRoomSettings,
+  serializeRoomSettings,
+  type AudioLayer,
+} from './core/roomSettings';
 import { AmbientAudioEngine } from './audio/AmbientAudioEngine';
 import './styles.css';
 
@@ -45,53 +51,29 @@ const shareButton: HTMLButtonElement = shareButtonElement;
 
 const ambientAudio = new AmbientAudioEngine();
 const validThemes: ThemePreset[] = ['meadow', 'dusk', 'mist', 'nightfall'];
-const layerNames = ['rain', 'drone', 'chimes'] as const;
-type AudioLayer = (typeof layerNames)[number];
-
-function readRoomState(): {
-  theme: ThemePreset;
-  timer: string;
-  levels: Record<AudioLayer, number>;
-} {
-  const params = new URLSearchParams(globalThis.location.hash.slice(1));
-  const requestedTheme = params.get('theme');
-  const requestedTimer = params.get('timer');
-  const timer = ['5', '10', '20', '30'].find(
-    (duration) => duration === requestedTimer,
-  );
-  const parseLevel = (name: AudioLayer, fallback: number): number => {
-    const value = Number(params.get(name));
-    return Number.isFinite(value) && params.has(name)
-      ? Math.min(1, Math.max(0, value))
-      : fallback;
-  };
-
-  return {
-    theme: validThemes.find((theme) => theme === requestedTheme) ?? 'meadow',
-    timer: timer ?? '10',
-    levels: {
-      rain: parseLevel('rain', 0.32),
-      drone: parseLevel('drone', 0.55),
-      chimes: parseLevel('chimes', 0.7),
-    },
-  };
-}
 
 function syncRoomHash(): void {
-  const params = new URLSearchParams();
   const theme = document.documentElement.dataset.theme;
-  params.set('theme', validThemes.find((preset) => preset === theme) ?? 'meadow');
-  params.set('timer', timerDuration.value);
+  const levels: Record<AudioLayer, number> = {
+    rain: 0.32,
+    drone: 0.55,
+    chimes: 0.7,
+  };
   layerSliders.forEach((slider) => {
     const layer = slider.dataset.layer;
-    if (layer && layerNames.includes(layer as AudioLayer)) {
-      params.set(layer, Number(slider.value).toFixed(2));
+    if (layer && AUDIO_LAYERS.includes(layer as AudioLayer)) {
+      levels[layer as AudioLayer] = Number(slider.value);
     }
+  });
+  const hash = serializeRoomSettings({
+    theme: validThemes.find((preset) => preset === theme) ?? 'meadow',
+    timer: timerDuration.value as '5' | '10' | '20' | '30',
+    levels,
   });
   globalThis.history.replaceState(
     null,
     '',
-    `${globalThis.location.pathname}${globalThis.location.search}#${params.toString()}`,
+    `${globalThis.location.pathname}${globalThis.location.search}${hash}`,
   );
 }
 
@@ -187,14 +169,13 @@ timerDuration.addEventListener('change', syncRoomHash);
 
 layerSliders.forEach((slider) => {
   const layer = slider.dataset.layer;
-  if (!layer || !layerNames.includes(layer as AudioLayer)) {
+  if (!layer || !AUDIO_LAYERS.includes(layer as AudioLayer)) {
     return;
   }
   const audioLayer = layer as AudioLayer;
   slider.addEventListener('input', () => {
     ambientAudio.setLevel(audioLayer, Number(slider.value));
     syncRoomHash();
-    scheduleControlsHide();
   });
 });
 
@@ -237,12 +218,12 @@ document.addEventListener('keydown', (event: KeyboardEvent) => {
 });
 
 const activityId: ActivityId = 'meadow';
-const roomState = readRoomState();
+const roomState = parseRoomSettings(globalThis.location.hash);
 document.documentElement.dataset.theme = roomState.theme;
 timerDuration.value = roomState.timer;
 layerSliders.forEach((slider) => {
   const layer = slider.dataset.layer;
-  if (layer && layerNames.includes(layer as AudioLayer)) {
+  if (layer && AUDIO_LAYERS.includes(layer as AudioLayer)) {
     const audioLayer = layer as AudioLayer;
     slider.value = String(roomState.levels[audioLayer]);
     ambientAudio.setLevel(audioLayer, roomState.levels[audioLayer]);
@@ -265,7 +246,7 @@ activity.start();
 window.addEventListener('pagehide', () => activity.dispose(), { once: true });
 
 const manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-if ('serviceWorker' in navigator && manifestLink) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator && manifestLink) {
   try {
     await navigator.serviceWorker.register(new URL('sw.js', manifestLink.href));
   } catch (error) {
@@ -276,3 +257,19 @@ if ('serviceWorker' in navigator && manifestLink) {
 }
 
 syncRoomHash();
+scheduleControlsHide();
+
+globalThis.addEventListener('hashchange', () => {
+  const settings = parseRoomSettings(globalThis.location.hash);
+  timerDuration.value = settings.timer;
+  timerDuration.dispatchEvent(new Event('change', { bubbles: true }));
+  layerSliders.forEach((slider) => {
+    const layer = slider.dataset.layer;
+    if (layer && AUDIO_LAYERS.includes(layer as AudioLayer)) {
+      const audioLayer = layer as AudioLayer;
+      slider.value = String(settings.levels[audioLayer]);
+      ambientAudio.setLevel(audioLayer, settings.levels[audioLayer]);
+    }
+  });
+  activity.setPreset(settings.theme);
+});
