@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A quiet little meadow for a slower moment."
+    />
+    <meta name="theme-color" content="#f2f4ed" />
+    <title>unwind.js — a moment in the meadow</title>
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="intro">
+        <p class="eyebrow">A LITTLE ROOM TO BREATHE</p>
+        <h1>Find your quiet.</h1>
+        <p class="description">
+          Let the meadow move at its own pace. Bring a little breeze with you.
+        </p>
+      </header>
+
+      <section class="experience" aria-label="Meadow activity">
+        <canvas
+          id="activity-canvas"
+          aria-label="A softly floating meadow that responds to your pointer"
+          role="img"
+        ></canvas>
+        <div class="meadow-caption" aria-hidden="true">
+          <span class="caption-dot"></span>
+          <span>A moment in the meadow</span>
+        </div>
+      </section>
+
+      <nav class="controls" aria-label="Activity controls">
+        <button id="sound-toggle" class="control-button" type="button" aria-pressed="false">
+          <span class="button-icon" aria-hidden="true">♪</span>
+          <span>Ambient sound</span>
+          <span class="toggle-state">Off</span>
+        </button>
+        <button id="fullscreen-toggle" class="control-button" type="button" aria-pressed="false">
+          <span class="button-icon" aria-hidden="true">⛶</span>
+          <span>Full screen</span>
+        </button>
+      </nav>
+
+      <p id="activity-status" class="status" aria-live="polite">
+        Move your pointer gently to stir the air.
+      </p>
+      <p class="keyboard-hint">Space: sound <span aria-hidden="true">·</span> F: full screen</p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
