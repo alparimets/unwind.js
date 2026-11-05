@@ -28,11 +28,5 @@ export default defineConfig(({ command }) => ({
   build: { target: 'es2022' },
   test: {
     include: ['src/**/*.test.ts'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'lcov'],
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts'],
-    },
   },
 }));
